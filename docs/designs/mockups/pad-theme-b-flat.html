@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>touch-shortcuts mockup: B: Flat colour blocks</title>
+<style>
+/* Surface Pro 2880x1920 at 200% scaling = 1440x960 CSS px. Render at that size. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1440px; height: 960px; overflow: hidden; }
+body { font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif; background: #1b1d21; color: #c9ccd1; position: relative; }
+
+/* ---------- Fake tuning app (generic, unbranded) underneath ---------- */
+.app { position: absolute; inset: 0; display: grid; grid-template-rows: 32px 40px 1fr; }
+.titlebar { background: #2b5797; color: #fff; font-size: 12px; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+/* Title bar stays in the ACTIVE colour: proves the pad did not steal focus. */
+.titlebar .wc { margin-left: auto; letter-spacing: 18px; opacity: .9; }
+.toolbar { background: #26292e; border-bottom: 1px solid #33373d; display: flex; gap: 6px; align-items: center; padding: 0 10px; }
+.toolbar span { background: #31353b; border: 1px solid #3c4148; padding: 4px 10px; font-size: 12px; border-radius: 2px; }
+.toolbar span.on { background: #3d4a5c; color: #fff; }
+.body { display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+.tree { background: #212327; border-right: 1px solid #33373d; padding: 10px; font-size: 12px; line-height: 24px; }
+.tree .g { color: #8b9098; margin-top: 6px; }
+.tree .sel { background: #34404f; color: #fff; padding-left: 6px; border-radius: 2px; }
+.grid { padding: 12px 14px; font-size: 12px; overflow: hidden; }
+table { border-collapse: collapse; width: 1180px; }
+th { text-align: left; color: #8b9098; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #3a3e45; }
+td { padding: 4px 8px; border-bottom: 1px solid #2c2f34; height: 34px; }
+.field { display: inline-block; min-width: 74px; background: #15171a; border: 1px solid #3a3e45; padding: 3px 6px; font-variant-numeric: tabular-nums; color: #e3e5e8; }
+.field.focus { border: 2px solid #4c8dff; background: #0f1a2c; color: #fff; }
+.field.focus::after { content: ""; display: inline-block; width: 1px; height: 13px; background: #fff; margin-left: 2px; vertical-align: -2px; }
+.meter { display: inline-block; width: 90px; height: 8px; background: #2c2f34; position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: #4f9d69; }
+.mute { display: inline-block; width: 22px; height: 18px; border: 1px solid #555; text-align: center; line-height: 16px; font-size: 10px; }
+
+/* ---------- The pad ---------- */
+.pad {
+  position: absolute; top: 44px; right: 12px; bottom: 12px; width: 318px;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--pad-bg); border: var(--pad-border); border-radius: var(--pad-radius);
+  box-shadow: var(--pad-shadow); backdrop-filter: var(--pad-blur, none);
+}
+.head { display: flex; align-items: center; gap: 8px; height: 26px; color: var(--head-fg); font-size: 13px; font-weight: 600; }
+/* Drag grip: the only "chrome". No title bar, no close button in normal use. */
+.grip { width: 34px; height: 14px; background-image: radial-gradient(var(--grip) 1.4px, transparent 1.6px); background-size: 7px 7px; opacity: .8; }
+.head .prof { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head .menu { font-size: 16px; opacity: .7; letter-spacing: 1px; }
+.keys { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; gap: var(--gap); }
+.k {
+  grid-column: span 2; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative;
+  font-size: var(--fs); font-weight: var(--fw); color: var(--fg);
+  background: var(--bg); border: var(--k-border); border-radius: var(--k-radius); box-shadow: var(--k-shadow);
+  user-select: none;
+}
+.k.w2 { grid-column: span 3; }
+.k.w4 { grid-column: span 4; }
+.k.w6 { grid-column: span 6; }
+.k small { font-size: 13px; font-weight: 600; opacity: .85; }
+.k svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.badge { position: absolute; top: 6px; right: 8px; font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 3px; background: var(--badge-bg); color: var(--badge-fg); }
+/* Pressed state shown on Down x10 mid-repeat: progress bar fills as presses land. */
+.k.pressed { filter: var(--press-filter); transform: translateY(1px); }
+.k.pressed .prog { position: absolute; left: 8px; right: 8px; bottom: 6px; height: 4px; background: rgba(255,255,255,.18); border-radius: 2px; overflow: hidden; }
+.k.pressed .prog i { display: block; width: 70%; height: 100%; background: var(--prog); }
+
+/* group colours */
+.num   { --bg: var(--num-bg);   --fg: var(--num-fg);   --k-border: var(--num-border, var(--kb)); }
+.ent   { --bg: var(--ent-bg);   --fg: var(--ent-fg);   --k-border: var(--ent-border, var(--kb)); }
+.fine  { --bg: var(--fine-bg);  --fg: var(--fine-fg);  --k-border: var(--fine-border, var(--kb)); }
+.coarse{ --bg: var(--coarse-bg);--fg: var(--coarse-fg);--k-border: var(--coarse-border, var(--kb)); }
+.hist  { --bg: var(--hist-bg);  --fg: var(--hist-fg);  --k-border: var(--hist-border, var(--kb)); }
+
+/* ---------- Variant label (not part of the product) ---------- */
+.tag { position: absolute; left: 244px; bottom: 14px; font-size: 13px; color: #fff; background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 4px; }
+
+/* B: Flat colour blocks. Solid fills, big bold labels, readable at arm's length. */
+:root { --pad-bg: #121417; --pad-border: 1px solid #2a2d33; --pad-radius: 8px; --pad-shadow: 0 10px 32px rgba(0,0,0,.6);
+  --head-fg: #aeb3ba; --grip: #6b7079; --gap: 6px; --fs: 28px; --fw: 700; --k-radius: 5px;
+  --kb: none; --k-shadow: none;
+  --badge-bg: rgba(0,0,0,.35); --badge-fg: #fff; --press-filter: brightness(1.3) saturate(1.1); --prog: #fff;
+  --num-bg: #2c3038; --num-fg: #f2f3f5;
+  --ent-bg: #1f5fbf; --ent-fg: #ffffff;
+  --fine-bg: #146b63; --fine-fg: #e6fffb;
+  --coarse-bg: #9a5a12; --coarse-fg: #fff4e6;
+  --hist-bg: #3a3d44; --hist-fg: #c4c7cc; }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">System Tuning: Arena Main (Online) <span class="wc">_ ▢ ✕</span></div>
+  <div class="toolbar"><span>Overview</span><span class="on">Delay / Gain</span><span>EQ</span><span>Groups</span><span>Snapshots</span><span>Online</span></div>
+  <div class="body">
+    <div class="tree">
+      <div class="g">Main Hangs</div><div>&nbsp;&nbsp;L Main</div><div>&nbsp;&nbsp;R Main</div>
+      <div class="g">Outfills</div><div>&nbsp;&nbsp;L Out</div><div>&nbsp;&nbsp;R Out</div>
+      <div class="g">Subs</div><div>&nbsp;&nbsp;Sub Array</div>
+      <div class="g">Delays</div><div class="sel">Delay Ring 1</div><div>&nbsp;&nbsp;Delay Ring 2</div>
+      <div class="g">Fills</div><div>&nbsp;&nbsp;Front Fill</div>
+    </div>
+    <div class="grid">
+      <table>
+        <tr><th>Channel</th><th>Amp</th><th>Gain (dB)</th><th>Delay (ms)</th><th>Polarity</th><th>Mute</th><th>Level</th></tr>
+        <tr><td>Delay Ring 1 A</td><td>D80 #12 ch1</td><td><span class="field">-3.0</span></td><td><span class="field">84.20</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:62%"></i></span></td></tr>
+        <tr><td>Delay Ring 1 B</td><td>D80 #12 ch2</td><td><span class="field">-3.0</span></td><td><span class="field focus">84.6</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:58%"></i></span></td></tr>
+        <tr><td>Delay Ring 1 C</td><td>D80 #12 ch3</td><td><span class="field">-2.5</span></td><td><span class="field">85.10</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:60%"></i></span></td></tr>
+        <tr><td>Delay Ring 1 D</td><td>D80 #12 ch4</td><td><span class="field">-2.5</span></td><td><span class="field">85.40</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:55%"></i></span></td></tr>
+        <tr><td>Delay Ring 2 A</td><td>D80 #13 ch1</td><td><span class="field">-6.0</span></td><td><span class="field">142.00</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:40%"></i></span></td></tr>
+        <tr><td>Delay Ring 2 B</td><td>D80 #13 ch2</td><td><span class="field">-6.0</span></td><td><span class="field">142.30</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:41%"></i></span></td></tr>
+        <tr><td>Front Fill 1</td><td>D20 #3 ch1</td><td><span class="field">-9.0</span></td><td><span class="field">12.40</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:30%"></i></span></td></tr>
+        <tr><td>Front Fill 2</td><td>D20 #3 ch2</td><td><span class="field">-9.0</span></td><td><span class="field">12.10</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:31%"></i></span></td></tr>
+        <tr><td>Sub Array L</td><td>D80 #1 ch1</td><td><span class="field">0.0</span></td><td><span class="field">3.80</span></td><td>-</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:75%"></i></span></td></tr>
+        <tr><td>Sub Array R</td><td>D80 #1 ch2</td><td><span class="field">0.0</span></td><td><span class="field">3.80</span></td><td>-</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:74%"></i></span></td></tr>
+        <tr><td>L Out</td><td>D80 #5 ch1</td><td><span class="field">-1.5</span></td><td><span class="field">6.20</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:66%"></i></span></td></tr>
+        <tr><td>R Out</td><td>D80 #5 ch2</td><td><span class="field">-1.5</span></td><td><span class="field">6.20</span></td><td>+</td><td><span class="mute">M</span></td><td><span class="meter"><i style="width:65%"></i></span></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Pad: frameless, right-docked, never takes focus (see design doc focus tiers). -->
+<div class="pad">
+  <div class="head"><div class="grip"></div><div class="prof">R1 - Delay/Gain</div><div class="menu">···</div></div>
+  <div class="keys">
+    <div class="k num">7</div><div class="k num">8</div><div class="k num">9</div>
+    <div class="k num">4</div><div class="k num">5</div><div class="k num">6</div>
+    <div class="k num">1</div><div class="k num">2</div><div class="k num">3</div>
+    <div class="k num w4">0</div><div class="k num">.</div>
+    <div class="k ent w6">Enter</div>
+    <div class="k fine w2"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Up</div>
+    <div class="k fine w2"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Down</div>
+    <div class="k fine w2"><small>Ctrl+</small><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+    <div class="k fine w2"><small>Ctrl+</small><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+    <div class="k coarse w2"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Up<span class="badge">×10</span></div>
+    <div class="k coarse w2 pressed"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Down<span class="badge">7/10</span><span class="prog"><i></i></span></div>
+    <div class="k ent w6"><svg viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6M21 5v14"/></svg>Tab</div>
+    <div class="k hist w2"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>Undo</div>
+    <div class="k hist w2"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg>Redo</div>
+  </div>
+</div>
+
+<div class="tag">B: Flat colour blocks</div>
+</body>
+</html>
