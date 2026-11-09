@@ -148,7 +148,7 @@ function onResult(r: ActionResult) {
   }
   if (r.code === "sink-unavailable") {
     if (el) flash(el, "unverified");
-    setStatus("macOS build: tap logged, key not sent (Windows only for now)", "amber");
+    setStatus("this build logs taps but cannot send keys", "amber");
     return;
   }
   if (r.code === "target-elevation-unknown") {

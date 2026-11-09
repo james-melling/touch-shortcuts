@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/tsp-core", "crates/tsp-win", "src-tauri"]
+members = ["crates/tsp-core", "crates/tsp-win", "crates/tsp-mac", "src-tauri"]
 
 [profile.release]
 codegen-units = 1

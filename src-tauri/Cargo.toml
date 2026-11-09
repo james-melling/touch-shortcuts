@@ -27,3 +27,6 @@ tsp-core = { path = "../crates/tsp-core" }
 
 [target.'cfg(windows)'.dependencies]
 tsp-win = { path = "../crates/tsp-win" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tsp-mac = { path = "../crates/tsp-mac" }

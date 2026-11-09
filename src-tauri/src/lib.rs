@@ -5,6 +5,8 @@
 
 #[cfg(windows)]
 use tsp_win as win;
+#[cfg(target_os = "macos")]
+use tsp_mac as mac;
 
 mod applog;
 
@@ -14,8 +16,10 @@ use std::time::Instant;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager};
-use tsp_core::combo::{Combo, KeyEvent};
-use tsp_core::executor::{self, Clock, Elevation, Foreground, KeySink, Outcome, Run, SideEffects, Target};
+use tsp_core::combo::Combo;
+use tsp_core::executor::{self, Clock, Foreground, Outcome, Run, SideEffects, Target};
+#[cfg(not(any(windows, target_os = "macos")))]
+use tsp_core::{combo::KeyEvent, executor::{Elevation, KeySink}};
 use tsp_core::geometry::{self, GridSpec, MARGIN};
 use tsp_core::profile::{Action, Dock, Group, Loaded, load_profile};
 use tsp_core::queue::{TapQueue, TapResult};
@@ -191,6 +195,9 @@ struct AppState {
     focus_mode: u8,
 }
 
+const HAS_SINK: bool = cfg!(any(windows, target_os = "macos"));
+const SINK_NAME: &str = if cfg!(windows) { "SendInput" } else if cfg!(target_os = "macos") { "CGEventPostToPid" } else { "sink-unavailable" };
+
 struct RealClock(Instant);
 impl Clock for RealClock {
     fn now_ms(&self) -> u64 {
@@ -204,21 +211,21 @@ impl Clock for RealClock {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 struct LogOnlySink;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 impl KeySink for LogOnlySink {
     fn send(&mut self, events: &[KeyEvent]) -> usize {
         events.len() // logged as sink-unavailable by the worker
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 struct DevForeground;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 impl Foreground for DevForeground {
     fn current(&mut self) -> Target {
-        Target { id: 1, title: "(non-Windows dev build)".into(), process: "dev".into(), is_pad: false, elevation: Elevation::No }
+        Target { id: 1, title: "(dev build without a key sink)".into(), process: "dev".into(), is_pad: false, elevation: Elevation::No }
     }
 }
 
@@ -260,6 +267,7 @@ fn describe_outcome(o: &Outcome, target: &Target, job: &Job) -> ActionResult {
                 "target-untitled" => "target-untitled: nothing sent. Tap the R1 field first, then retry.".to_string(),
                 "target-not-allowed" => format!("target-not-allowed: nothing sent; \"{}\" ({}) is not in this profile's targetApps.", target.title, target.process),
                 "target-elevated" => "target-elevated: keys will be dropped. Quit, then start the pad with Run as administrator.".to_string(),
+                "sink-permission" => "sink-permission: nothing sent. Allow this app under System Settings → Privacy & Security → Accessibility, then quit and relaunch the pad.".to_string(),
                 other => format!("{other}: nothing sent."),
             };
             base(false, code, msg, "none", 0, job.repeat)
@@ -284,7 +292,9 @@ fn spawn_worker(app: AppHandle, shared: Arc<(Mutex<Shared>, Condvar)>, started: 
     std::thread::spawn(move || {
         #[cfg(windows)]
         let (mut sink, mut fg) = (win::SendInputSink, win::WinForeground);
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        let (mut sink, mut fg) = (mac::MacSink, mac::MacForeground);
+        #[cfg(not(any(windows, target_os = "macos")))]
         let (mut sink, mut fg) = (LogOnlySink, DevForeground);
         let mut clock = RealClock(started);
         loop {
@@ -314,9 +324,17 @@ fn spawn_worker(app: AppHandle, shared: Arc<(Mutex<Shared>, Condvar)>, started: 
             let run = Run { combo: &job.combo, repeat: job.repeat, interval_ms: job.interval_ms, target_apps: job.target_apps.as_deref(), pad_elevated };
             let cancel = || shared.0.lock().map(|s| s.queue.cancel_requested || s.quit).unwrap_or(true);
             let t_start = clock.now_ms();
-            let outcome = executor::execute(&run, &mut sink, &mut fg, &mut clock, &cancel);
+            #[cfg(target_os = "macos")]
+            let permitted = mac::can_post();
+            #[cfg(not(target_os = "macos"))]
+            let permitted = true;
+            let outcome = if permitted {
+                executor::execute(&run, &mut sink, &mut fg, &mut clock, &cancel)
+            } else {
+                Outcome::Refused { code: "sink-permission" }
+            };
             let mut result = describe_outcome(&outcome, &target, &job);
-            if !cfg!(windows) && result.ok && result.code == "ok" {
+            if !HAS_SINK && result.ok && result.code == "ok" {
                 // Never report success for keys that were not sent.
                 result = ActionResult {
                     ok: false,
@@ -340,7 +358,7 @@ fn spawn_worker(app: AppHandle, shared: Arc<(Mutex<Shared>, Condvar)>, started: 
                 "of": result.of,
                 "sideEffects": result.side_effects,
                 "elapsedMs": clock.now_ms() - t_start,
-                "sink": if cfg!(windows) { "SendInput" } else { "sink-unavailable" },
+                "sink": SINK_NAME,
             }));
             let _ = app.emit("action-result", result);
             shared.0.lock().unwrap().queue.finish();
@@ -482,8 +500,15 @@ pub fn run() {
             if let Some(m) = focus_mode_override() {
                 settings.focus_mode = m;
             }
-            if !cfg!(windows) {
-                extra.push("sink-unavailable: this macOS build logs taps but does not send keystrokes yet (Windows sends them; macOS is Phase 2).".into());
+            if !HAS_SINK {
+                extra.push("sink-unavailable: this build logs taps but does not send keystrokes (Windows and macOS send them).".into());
+            }
+            #[cfg(target_os = "macos")]
+            {
+                mac::start_tracker();
+                if !mac::request_post_access() {
+                    extra.push("sink-permission: keys cannot be sent until this app is allowed under System Settings → Privacy & Security → Accessibility. Allow it, then quit and relaunch the pad.".into());
+                }
             }
             let active = load_active(&config_dir, &settings, extra);
             let started = Instant::now();

@@ -56,11 +56,27 @@ touch-shortcuts.exe --focus-mode=3   # + give the foreground back before each se
 3. Keys land in the pad or nothing happens: try `--focus-mode=2`, then `3`.
 4. Open the log (path above) and check the `target` and `code` of each tap.
 
+## macOS
+
+Keys go to the app that was in front before you tapped the pad (posted to
+that app with `CGEventPostToPid`; if tapping brought the pad forward, the app
+is re-activated first). The same profiles work: `Win` means Command, numpad
+keys map to the keypad.
+
+- macOS asks for permission once. Allow it under System Settings → Privacy &
+  Security → Accessibility, then quit and relaunch the pad. Without it every
+  tap shows `sink-permission`. In `npm run tauri dev` the permission belongs
+  to the terminal app that launched it.
+- Mac apps often use Command where Windows uses Ctrl (Undo is `Win+Z` on a
+  Mac profile, not `Ctrl+Z`).
+- Diagnostic: `cargo run -p tsp-mac --example send -- "Num7" 3` types into
+  whatever app is in front 2 s later.
+
 ## Develop
 
 ```
-cargo test --workspace      # core rules: combos, profiles, executor, queue, geometry
-npm run tauri dev           # on macOS keys are logged, not sent (sink-unavailable)
+cargo test --workspace      # core rules: combos, profiles, executor, queue, geometry, Mac keycodes
+npm run tauri dev           # Windows and macOS send keys; other platforms log taps (sink-unavailable)
 cargo check -p tsp-win --target x86_64-pc-windows-msvc   # type-check the Win32 layer from a Mac
 ```
 
