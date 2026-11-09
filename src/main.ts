@@ -146,6 +146,11 @@ function onResult(r: ActionResult) {
     setStatus(`cancelled ${r.sent}/${r.of}`, "");
     return;
   }
+  if (r.code === "sink-unavailable") {
+    if (el) flash(el, "unverified");
+    setStatus("macOS build: tap logged, key not sent (Windows only for now)", "amber");
+    return;
+  }
   if (r.code === "target-elevation-unknown") {
     if (el) flash(el, "unverified");
     setStatus(r.message, "amber");

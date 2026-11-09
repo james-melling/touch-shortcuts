@@ -315,7 +315,18 @@ fn spawn_worker(app: AppHandle, shared: Arc<(Mutex<Shared>, Condvar)>, started: 
             let cancel = || shared.0.lock().map(|s| s.queue.cancel_requested || s.quit).unwrap_or(true);
             let t_start = clock.now_ms();
             let outcome = executor::execute(&run, &mut sink, &mut fg, &mut clock, &cancel);
-            let result = describe_outcome(&outcome, &target, &job);
+            let mut result = describe_outcome(&outcome, &target, &job);
+            if !cfg!(windows) && result.ok && result.code == "ok" {
+                // Never report success for keys that were not sent.
+                result = ActionResult {
+                    ok: false,
+                    code: "sink-unavailable".into(),
+                    message: format!("sink-unavailable: {} not sent; this macOS build logs taps only (keys are sent on Windows)", job.combo_text),
+                    side_effects: "none",
+                    sent: 0,
+                    ..result
+                };
+            }
             log.write(serde_json::json!({
                 "event": "action",
                 "buttonId": job.button_id,
@@ -470,6 +481,9 @@ pub fn run() {
             let mut settings = read_settings(&config_dir, &mut extra);
             if let Some(m) = focus_mode_override() {
                 settings.focus_mode = m;
+            }
+            if !cfg!(windows) {
+                extra.push("sink-unavailable: this macOS build logs taps but does not send keystrokes yet (Windows sends them; macOS is Phase 2).".into());
             }
             let active = load_active(&config_dir, &settings, extra);
             let started = Instant::now();
