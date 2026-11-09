@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "touch-shortcuts",
+  "productName": "Touch Shortcuts",
   "version": "0.1.0",
   "identifier": "audio.melling.touchshortcuts",
   "build": {
@@ -10,27 +10,43 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
-        "title": "touch-shortcuts",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Touch Shortcuts",
+        "width": 312,
+        "height": 880,
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "focusable": false,
+        "focus": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
   }
 }
