@@ -1,0 +1,53 @@
+/* Surface spike only (delete with src-tauri/src/spike.rs). */
+
+/* ---- spike pad: transparent window, slab alpha is the background opacity ---- */
+html:has(body.spike), body.spike { background: transparent; }
+.slab {
+  position: absolute; inset: 0; border-radius: 12px;
+  background: rgba(20, 22, 25, var(--bgo, 0.97));
+}
+.shead {
+  position: absolute; left: 10px; right: 10px; top: 10px; height: 124px; z-index: 2;
+  display: flex; flex-direction: column; gap: 4px; padding: 0;
+  background: rgba(20, 22, 25, 0.92); border-radius: 10px;
+}
+.srow { display: flex; gap: 4px; height: 44px; }
+.srow .grip { width: 36px; height: 44px; }
+.srow button, .chip, .wide, .done, .check button {
+  flex: 1; min-width: 0; height: 44px; border-radius: 8px;
+  font: 600 13px/1 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  color: #d5d8dc; background: #22262b; border: 1px solid #3a3f46;
+}
+.srow button.on, .chip.on { color: var(--ent-fg); border-color: var(--ent-border); background: rgba(110, 168, 255, 0.12); }
+.sstatus { font-size: 12px; line-height: 15px; height: 30px; overflow: hidden; color: var(--head-fg); padding: 0 4px; }
+.sstatus .warn { color: var(--amber); }
+/* Keys keep their own backing at every background opacity (premise 8). */
+.spike .k { background-color: rgba(20, 22, 25, 0.92); background-image: linear-gradient(var(--bg), var(--bg)); }
+
+/* ---- spike panel: opaque, normal window, no activation until Label ---- */
+html:has(body.panel), body.panel { background: #16181b; }
+body.panel { display: flex; flex-direction: column; height: 100%; }
+.ptitle { flex: none; height: 44px; line-height: 44px; padding: 0 14px; font-weight: 600; font-size: 13px; color: var(--head-fg); border-bottom: 1px solid #2a2e33; cursor: grab; }
+.pfg { flex: none; padding: 6px 14px; font-size: 13px; line-height: 17px; min-height: 42px; border-bottom: 1px solid #2a2e33; }
+.pfg.panel { color: var(--amber); }
+.pscroll { flex: 1; overflow-y: auto; touch-action: pan-y; padding: 0 14px 14px; }
+.pscroll section { padding-top: 12px; }
+.pscroll h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--head-fg); margin-bottom: 8px; }
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px; }
+.wide { width: 100%; }
+input, textarea {
+  width: 100%; font: 16px "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: #e6e8eb;
+  background: #0f1113; border: 1px solid #3a3f46; border-radius: 8px; padding: 10px; user-select: text; -webkit-user-select: text;
+}
+input { height: 44px; }
+textarea { margin-top: 8px; resize: none; }
+.check { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid #23272c; }
+.check p { flex: 1; font-size: 13px; line-height: 17px; }
+.check p.gate { color: var(--ent-fg); font-weight: 600; }
+.check button { flex: none; width: 56px; }
+.check button.pass.on { color: #7fd6c9; border-color: #3f8f84; }
+.check button.fail.on { color: var(--red); border-color: var(--red); }
+.path { font-size: 11px; color: var(--head-fg); margin-top: 8px; word-break: break-all; user-select: text; -webkit-user-select: text; }
+.pfoot { flex: none; padding: 10px 14px; border-top: 1px solid #2a2e33; display: flex; flex-direction: column; gap: 8px; }
+.pmsg { font-size: 13px; line-height: 17px; min-height: 17px; }
+.done { width: 100%; color: var(--ent-fg); border-color: var(--ent-border); }

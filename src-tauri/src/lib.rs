@@ -9,6 +9,7 @@ use tsp_win as win;
 use tsp_mac as mac;
 
 mod applog;
+mod spike;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
@@ -528,12 +529,17 @@ pub fn run() {
             }));
             let shared = Arc::new((Mutex::new(Shared { queue: TapQueue::default(), quit: false }), Condvar::new()));
             let focus_mode = settings.focus_mode;
+            app.manage(spike::SpikeState::new(&log_dir));
             app.manage(AppState { shared: shared.clone(), active: Mutex::new(active), started, config_dir, settings: Mutex::new(settings), focus_mode });
             spawn_worker(handle.clone(), shared, started, focus_mode, pad_elevated, log);
 
             let wa = work_area_logical_height(&handle).unwrap_or(2000);
             let layout = pad_view(&handle.state::<AppState>().active.lock().unwrap(), wa).1;
             place_window(&handle, &layout);
+            if spike::flag_set() {
+                spike::start(&handle).map_err(|e| format!("spike: {e}"))?;
+                return Ok(());
+            }
             #[cfg(windows)]
             if let Some(w) = handle.get_webview_window("main") {
                 if let Ok(h) = w.hwnd() {
@@ -547,7 +553,25 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_pad, run_action, stop_all, reload_profile, quit, focus_mode])
+        .invoke_handler(tauri::generate_handler![
+            get_pad,
+            run_action,
+            stop_all,
+            reload_profile,
+            quit,
+            focus_mode,
+            spike::spike_start,
+            spike::spike_pad,
+            spike::spike_status,
+            spike::spike_region,
+            spike::spike_chrome,
+            spike::spike_endsession,
+            spike::spike_panel_open,
+            spike::spike_panel_activate,
+            spike::spike_panel_hide_show,
+            spike::spike_panel_done,
+            spike::spike_record,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

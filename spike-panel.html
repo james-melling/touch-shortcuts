@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/spike.css" />
+    <title>Touch Shortcuts spike panel</title>
+    <script type="module" src="/src/spike-panel.ts" defer></script>
+  </head>
+  <body class="panel">
+    <div class="ptitle" id="ptitle">Spike panel · drag here</div>
+    <div class="pfg" id="fg" role="status">Foreground: …</div>
+    <div class="pscroll">
+      <section>
+        <h2>Pen controls (should leave R1 in front)</h2>
+        <div class="chips">
+          <button type="button" class="chip">Ctrl</button>
+          <button type="button" class="chip">Shift</button>
+          <button type="button" class="chip">↑</button>
+          <button type="button" class="chip">↓</button>
+          <button type="button" class="chip">×1</button>
+          <button type="button" class="chip">×10</button>
+        </div>
+        <button type="button" class="wide" id="hideshow">Hide 1.5 s (drag test)</button>
+      </section>
+      <section>
+        <h2>Label (should take focus and show the touch keyboard)</h2>
+        <input id="label" type="text" maxlength="24" placeholder="Tap here, then write" autocomplete="off" />
+      </section>
+      <section>
+        <h2>Checklist</h2>
+        <div id="checks"></div>
+        <textarea id="note" rows="2" placeholder="Note for the next Pass/Fail you tap (optional)"></textarea>
+        <p class="path" id="path"></p>
+      </section>
+    </div>
+    <div class="pfoot">
+      <div class="pmsg" id="msg"></div>
+      <button type="button" class="done" id="done">Done</button>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "spike",
+  "description": "Surface spike windows (temporary; remove with src-tauri/src/spike.rs)",
+  "windows": ["spike-pad", "spike-panel"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}

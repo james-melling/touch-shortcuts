@@ -10,6 +10,12 @@ export default defineConfig(() => ({
   //
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
+  build: {
+    rollupOptions: {
+      // Surface spike pages are temporary; remove with src-tauri/src/spike.rs.
+      input: { main: "index.html", spike: "spike.html", spikePanel: "spike-panel.html" },
+    },
+  },
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,

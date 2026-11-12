@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/spike.css" />
+    <title>Touch Shortcuts spike</title>
+    <script type="module" src="/src/spike.ts" defer></script>
+  </head>
+  <body class="spike">
+    <div class="slab" id="slab"></div>
+    <header class="shead" id="shead">
+      <div class="srow">
+        <div class="grip" id="grip" aria-label="Drag to move the pad"></div>
+        <button type="button" data-bg="0">BG 0%</button>
+        <button type="button" data-bg="0.3">30%</button>
+        <button type="button" data-bg="0.97">97%</button>
+        <button type="button" id="tap">Tap-thru</button>
+      </div>
+      <div class="srow">
+        <button type="button" id="shadow">Shadow</button>
+        <button type="button" id="corners">Corners</button>
+        <button type="button" id="endsess">EndSess</button>
+        <button type="button" id="panel">Panel</button>
+        <button type="button" id="quit">Quit</button>
+      </div>
+      <div class="sstatus" id="status" role="status"></div>
+    </header>
+    <div class="keys" id="keys"></div>
+  </body>
+</html>

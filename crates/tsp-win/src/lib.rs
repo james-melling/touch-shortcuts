@@ -3,6 +3,8 @@
 //!
 //! Everything here is a thin shell over Win32; the rules live in tsp-core.
 
+pub mod window;
+
 use std::sync::atomic::{AtomicIsize, Ordering};
 
 use tsp_core::combo::KeyEvent;
@@ -151,6 +153,11 @@ pub fn describe(h: HWND) -> Target {
     Target { id: h.0 as u64, title: window_title(h), process, is_pad, elevation }
 }
 
+/// Describes a window by raw handle (for callers without the `windows` crate).
+pub fn describe_raw(h: isize) -> Target {
+    describe(hwnd(h))
+}
+
 pub struct WinForeground;
 
 impl Foreground for WinForeground {
@@ -162,6 +169,11 @@ impl Foreground for WinForeground {
         }
         t
     }
+}
+
+/// The last non-pad, non-shell foreground window seen (0 if none yet).
+pub fn last_other() -> isize {
+    LAST_OTHER.load(Ordering::SeqCst)
 }
 
 /// Tier 3: if the pad took the foreground, give it back to the last real

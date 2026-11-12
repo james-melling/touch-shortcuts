@@ -200,6 +200,7 @@ function openMenu() {
     return b;
   };
   btn("Reload profile", async () => { closeMenu(); render(await invoke<PadView>("reload_profile")); });
+  btn("Surface spike (test)", () => { closeMenu(); invoke("spike_start").catch((err) => showError(`spike: ${String(err)}`)); });
   items.push(document.createElement("hr"));
   const quit = btn(quitArmed > Date.now() ? "Tap again to quit" : "Quit", () => {
     if (quitArmed > Date.now()) {
