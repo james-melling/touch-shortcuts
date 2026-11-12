@@ -4,4 +4,7 @@ pub mod profile;
 pub mod executor;
 pub mod queue;
 pub mod geometry;
+pub mod layout;
+pub mod edit;
+pub mod codes;
 pub mod mackeys;

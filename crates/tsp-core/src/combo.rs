@@ -147,6 +147,95 @@ pub fn parse_combo(text: &str) -> Result<Combo, ComboError> {
     main.map(|key| Combo { modifiers, key }).ok_or(ComboError::ModifiersOnly)
 }
 
+/// Canonical text: modifiers in Ctrl, Shift, Alt, Win order, then the key.
+pub fn canonical_text(combo: &Combo) -> String {
+    let mut out = String::new();
+    for m in [CTRL, SHIFT, ALT, WIN] {
+        if combo.modifiers.iter().any(|x| x.vk == m.vk) {
+            out.push_str(m.name);
+            out.push('+');
+        }
+    }
+    out.push_str(combo.key.name);
+    out
+}
+
+/// Same keys regardless of modifier order or aliases.
+pub fn same_keys(a: &Combo, b: &Combo) -> bool {
+    a.key.vk == b.key.vk && a.modifiers.len() == b.modifiers.len() && a.modifiers.iter().all(|m| b.modifiers.iter().any(|x| x.vk == m.vk))
+}
+
+/// Record from keyboard: maps a `KeyboardEvent.code` to a grammar key name.
+/// Digit0-9 and Period are the number-row keys; codes with no grammar key
+/// return `None` (the panel says "<key> isn't supported: pick it with the pen").
+pub fn key_from_code(code: &str) -> Option<&'static str> {
+    if let Some(l) = code.strip_prefix("Key") {
+        return LETTERS.iter().copied().find(|x| *x == l);
+    }
+    if let Some(d) = code.strip_prefix("Digit") {
+        return DIGITS.iter().copied().find(|x| *x == d);
+    }
+    if let Some(d) = code.strip_prefix("Numpad") {
+        if let Some(i) = DIGITS.iter().position(|x| *x == d) {
+            return Some(NUMS[i]);
+        }
+        return match d {
+            "Decimal" => Some("NumDecimal"),
+            "Add" => Some("Plus"),
+            "Subtract" => Some("Minus"),
+            "Enter" => Some("Enter"),
+            _ => None,
+        };
+    }
+    if code.starts_with('F') && code.len() <= 3 {
+        return FKEYS.iter().copied().find(|x| *x == code);
+    }
+    Some(match code {
+        "Period" => ".",
+        "Comma" => "Comma",
+        "Enter" => "Enter",
+        "Tab" => "Tab",
+        "Escape" => "Esc",
+        "Space" => "Space",
+        "Backspace" => "Backspace",
+        "Delete" => "Delete",
+        "ArrowUp" => "Up",
+        "ArrowDown" => "Down",
+        "ArrowLeft" => "Left",
+        "ArrowRight" => "Right",
+        "Home" => "Home",
+        "End" => "End",
+        "PageUp" => "PageUp",
+        "PageDown" => "PageDown",
+        _ => return None,
+    })
+}
+
+/// Modifier codes are held, never recorded as the key.
+pub fn is_modifier_code(code: &str) -> bool {
+    matches!(code, "ControlLeft" | "ControlRight" | "ShiftLeft" | "ShiftRight" | "AltLeft" | "AltRight" | "MetaLeft" | "MetaRight" | "OSLeft" | "OSRight")
+}
+
+/// Turns a recorded keydown into canonical combo text, or the message to show.
+pub fn record(code: &str, ctrl: bool, shift: bool, alt: bool, meta: bool) -> Result<String, String> {
+    if meta {
+        return Err("Win combos: pick them with the pen".into());
+    }
+    let Some(key) = key_from_code(code) else {
+        let shown = code.strip_prefix("Key").or_else(|| code.strip_prefix("Digit")).unwrap_or(code);
+        return Err(format!("{shown} isn't supported: pick it with the pen"));
+    };
+    let mut text = String::new();
+    for (on, m) in [(ctrl, CTRL), (shift, SHIFT), (alt, ALT)] {
+        if on {
+            text.push_str(m.name);
+            text.push('+');
+        }
+    }
+    text.push_str(key);
+    parse_combo(&text).map(|c| canonical_text(&c)).map_err(|_| format!("{code} isn't supported: pick it with the pen"))
+}
+
 /// Combos that can take over the machine. Allowed only by the local
 /// `settings.json` (`allowSystemKeys`), never by a profile.
 pub fn is_system_combo(combo: &Combo) -> bool {
@@ -270,5 +359,42 @@ mod tests {
         for text in ["+", "++", "+A", "A+", "Ctrl++", "🎛️", "Ctrl+🎛️", "\0", "a b", &"x".repeat(10_000)] {
             let _ = parse_combo(text);
         }
+    }
+
+    #[test]
+    fn canonical_text_orders_modifiers_and_resolves_aliases() {
+        let c = parse_combo("shift + control + arrowup").unwrap();
+        assert_eq!(canonical_text(&c), "Ctrl+Shift+Up");
+        assert!(same_keys(&c, &parse_combo("Ctrl+Shift+Up").unwrap()));
+        assert!(!same_keys(&c, &parse_combo("Ctrl+Up").unwrap()));
+    }
+
+    #[test]
+    fn keyboard_codes_map_to_the_grammar() {
+        let table: &[(&str, &str)] = &[
+            ("KeyA", "A"), ("KeyZ", "Z"), ("Digit0", "0"), ("Digit9", "9"), ("Period", "."), ("Comma", "Comma"),
+            ("Numpad0", "Num0"), ("Numpad7", "Num7"), ("NumpadDecimal", "NumDecimal"), ("NumpadAdd", "Plus"),
+            ("NumpadSubtract", "Minus"), ("NumpadEnter", "Enter"), ("Enter", "Enter"), ("Tab", "Tab"),
+            ("Escape", "Esc"), ("Space", "Space"), ("Backspace", "Backspace"), ("Delete", "Delete"),
+            ("ArrowUp", "Up"), ("ArrowDown", "Down"), ("ArrowLeft", "Left"), ("ArrowRight", "Right"),
+            ("Home", "Home"), ("End", "End"), ("PageUp", "PageUp"), ("PageDown", "PageDown"), ("F1", "F1"), ("F12", "F12"),
+        ];
+        for &(code, name) in table {
+            assert_eq!(key_from_code(code), Some(name), "{code}");
+            assert!(parse_combo(name).is_ok(), "{name} must be in the grammar");
+        }
+        for code in ["Equal", "BracketLeft", "Insert", "F13", "NumpadMultiply", "IntlBackslash", "ControlLeft"] {
+            assert_eq!(key_from_code(code), None, "{code}");
+        }
+    }
+
+    #[test]
+    fn record_builds_canonical_combos_and_explains_refusals() {
+        assert_eq!(record("ArrowDown", true, false, false, false).unwrap(), "Ctrl+Down");
+        assert_eq!(record("KeyZ", true, true, true, false).unwrap(), "Ctrl+Shift+Alt+Z");
+        assert_eq!(record("Escape", false, false, false, false).unwrap(), "Esc");
+        assert_eq!(record("Equal", false, false, false, false).unwrap_err(), "Equal isn't supported: pick it with the pen");
+        assert_eq!(record("KeyR", false, false, false, true).unwrap_err(), "Win combos: pick them with the pen");
+        assert!(is_modifier_code("ShiftRight") && !is_modifier_code("KeyA"));
     }
 }

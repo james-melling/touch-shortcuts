@@ -1,0 +1,236 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/james-melling/touch-shortcuts/main/schema/tsp-v2.schema.json",
+  "title": "touch-shortcuts profile (schema 2)",
+  "description": "A pad of buttons on a grid. Sizes are w×h = columns × rows. Generated from the app's validator; do not edit by hand.",
+  "type": "object",
+  "required": [
+    "schema",
+    "name",
+    "pad"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema": {
+      "const": 2,
+      "description": "Profile format version."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 48,
+      "description": "Shown in the pad header."
+    },
+    "acceptTouch": {
+      "type": "boolean",
+      "default": true,
+      "description": "false = pen and mouse only; finger taps send nothing."
+    },
+    "targetApps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Process names the pad may type into, e.g. [\"R1.exe\"]. Omit for any app."
+    },
+    "pad": {
+      "type": "object",
+      "required": [
+        "grid",
+        "cellWidth",
+        "cellHeight",
+        "gap"
+      ],
+      "properties": {
+        "grid": {
+          "type": "object",
+          "required": [
+            "columns",
+            "rows"
+          ],
+          "properties": {
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "Grid columns."
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "description": "Grid rows."
+            }
+          }
+        },
+        "cellWidth": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 200,
+          "description": "Cell width in px at scale 1."
+        },
+        "cellHeight": {
+          "type": "integer",
+          "minimum": 40,
+          "maximum": 200,
+          "description": "Cell height in px at scale 1 (rows may shrink to fit the screen, never below 56 px)."
+        },
+        "gap": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24,
+          "description": "Space between cells in px at scale 1."
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.0,
+          "default": 1.0,
+          "description": "Multiplies every size; snapped to hundredths."
+        },
+        "padOpacity": {
+          "type": "number",
+          "minimum": 0.3,
+          "maximum": 1.0,
+          "default": 1.0,
+          "description": "Fades the slab and keys (not the header)."
+        },
+        "backgroundOpacity": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.97,
+          "description": "Slab alpha. Below 0.05 counts as 0: floating buttons, taps in the gaps reach the app below."
+        },
+        "dock": {
+          "enum": [
+            "right",
+            "left"
+          ],
+          "default": "right"
+        },
+        "theme": {
+          "enum": [
+            "c-low-glare",
+            "b-flat"
+          ],
+          "default": "c-low-glare"
+        }
+      }
+    },
+    "buttons": {
+      "type": "array",
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "x",
+          "y",
+          "action"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$",
+            "description": "Unique id: a-z, 0-9 and -."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11,
+            "description": "Left column (0-based)."
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 59,
+            "description": "Top row (0-based)."
+          },
+          "w": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "default": 1,
+            "description": "Width in columns."
+          },
+          "h": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 1,
+            "description": "Height in rows."
+          },
+          "group": {
+            "enum": [
+              "num",
+              "ent",
+              "fine",
+              "coarse",
+              "hist",
+              "custom"
+            ],
+            "default": "num",
+            "description": "Colour group."
+          },
+          "icon": {
+            "enum": [
+              "up",
+              "down",
+              "left",
+              "right",
+              "enter",
+              "tab",
+              "undo",
+              "redo"
+            ]
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "description": "Overrides the group colour."
+          },
+          "action": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "keys",
+                  "none"
+                ],
+                "description": "keys = send a key combo; none = not set yet."
+              },
+              "combo": {
+                "type": "string",
+                "description": "Mod+Mod+Key, e.g. \"Ctrl+Down\", \"Num7\", \"Enter\"."
+              },
+              "repeat": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "description": "Presses per tap."
+              },
+              "intervalMs": {
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 1000,
+                "description": "Start-to-start time between presses."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

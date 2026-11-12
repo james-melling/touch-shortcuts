@@ -3,6 +3,7 @@
 
 use std::path::Path;
 use tsp_core::combo::press_events;
+use tsp_core::geometry::{self, Cells, Grid, GridSpec};
 use tsp_core::profile::{Action, load_profile};
 
 fn profiles_dir() -> std::path::PathBuf {
@@ -71,4 +72,47 @@ fn r1_starter_sends_pinned_key_events() {
         ("redo".into(), 1, ctrl(0x59, false)),
     ];
     assert_eq!(got, want);
+}
+
+/// Golden: the shipped v1 R1 profile, converted to schema 2, renders exactly
+/// v1's rects on the field Surface (912 px work area: rows shrink to 74 px)
+/// and on a tall screen (2000 px: natural 78 px).
+#[test]
+fn r1_v1_profile_converts_to_identical_rects() {
+    let bytes = std::fs::read(profiles_dir().join("r1-delay-gain.tsp.json")).unwrap();
+    let raw: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let spans: Vec<u32> = raw["buttons"].as_array().unwrap().iter().map(|b| b["span"].as_u64().unwrap_or(2) as u32).collect();
+    let p = load_profile(&bytes, false).unwrap().profile;
+    let grid = Grid { columns: p.pad.columns, rows: p.pad.rows, cell_width: p.pad.cell_width, cell_height: p.pad.cell_height, gap: p.pad.gap, scale: p.pad.scale };
+    let cells: Vec<Cells> = p.buttons.iter().map(|b| Cells { x: b.x, y: b.y, w: b.w, h: b.h }).collect();
+    for (wa, row) in [(912, 74.0), (2000, 78.0)] {
+        let v1 = geometry::layout(&GridSpec { grid_columns: 6, button_width: 92, button_height: 78, gap: 8, spans: &spans }, wa);
+        let v2 = geometry::fit(&grid, &cells, (1920, wa), false);
+        assert_eq!(v2.buttons, v1.buttons, "work area {wa}");
+        assert_eq!((v2.width, v2.height), (v1.width, v1.height), "work area {wa}");
+        assert_eq!(v2.row_height, row);
+    }
+}
+
+#[test]
+fn example_v2_profile_is_schema_2_with_no_conversion() {
+    let bytes = std::fs::read(profiles_dir().join("example-v2.tsp.json")).unwrap();
+    let l = load_profile(&bytes, false).unwrap();
+    assert_eq!(l.source_schema, 2);
+    assert_eq!(l.profile.buttons.len(), 21);
+    assert!(l.normalised.is_empty());
+}
+
+/// Golden text: as the editor saves it, one label edit changes exactly one line.
+#[test]
+fn one_label_edit_changes_one_line_of_the_saved_example() {
+    use tsp_core::edit::{Op, apply};
+    use tsp_core::profile::to_text;
+    let bytes = std::fs::read(profiles_dir().join("example-v2.tsp.json")).unwrap();
+    let l = load_profile(&bytes, false).unwrap();
+    let a = apply(&l, &Op::SetLabel { button_id: "tab".into(), label: "Next".into() }, false).unwrap();
+    let (before, after) = (to_text(&l.doc), to_text(&a.loaded.doc));
+    assert_eq!(before.lines().count(), after.lines().count());
+    let diff: Vec<_> = before.lines().zip(after.lines()).filter(|(x, y)| x != y).collect();
+    assert_eq!(diff, vec![("      \"label\": \"Tab\",", "      \"label\": \"Next\",")]);
 }

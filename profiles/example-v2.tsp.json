@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/james-melling/touch-shortcuts/main/schema/tsp-v2.schema.json",
+  "schema": 2,
+  "name": "R1 numpad 4x8",
+  "acceptTouch": true,
+  "pad": {
+    "grid": { "columns": 4, "rows": 8 },
+    "cellWidth": 69, "cellHeight": 76, "gap": 8,
+    "scale": 1.0, "padOpacity": 1.0, "backgroundOpacity": 0.97,
+    "dock": "right", "theme": "c-low-glare"
+  },
+  "buttons": [
+    { "id": "d7", "label": "7", "x": 0, "y": 0, "group": "num", "action": { "type": "keys", "combo": "Num7" } },
+    { "id": "d8", "label": "8", "x": 1, "y": 0, "group": "num", "action": { "type": "keys", "combo": "Num8" } },
+    { "id": "d9", "label": "9", "x": 2, "y": 0, "group": "num", "action": { "type": "keys", "combo": "Num9" } },
+    { "id": "up", "label": "Up", "icon": "up", "x": 3, "y": 0, "group": "fine", "action": { "type": "keys", "combo": "Up" } },
+    { "id": "d4", "label": "4", "x": 0, "y": 1, "group": "num", "action": { "type": "keys", "combo": "Num4" } },
+    { "id": "d5", "label": "5", "x": 1, "y": 1, "group": "num", "action": { "type": "keys", "combo": "Num5" } },
+    { "id": "d6", "label": "6", "x": 2, "y": 1, "group": "num", "action": { "type": "keys", "combo": "Num6" } },
+    { "id": "down", "label": "Down", "icon": "down", "x": 3, "y": 1, "group": "fine", "action": { "type": "keys", "combo": "Down" } },
+    { "id": "d1", "label": "1", "x": 0, "y": 2, "group": "num", "action": { "type": "keys", "combo": "Num1" } },
+    { "id": "d2", "label": "2", "x": 1, "y": 2, "group": "num", "action": { "type": "keys", "combo": "Num2" } },
+    { "id": "d3", "label": "3", "x": 2, "y": 2, "group": "num", "action": { "type": "keys", "combo": "Num3" } },
+    { "id": "ctrl-up", "label": "Ctrl+Up", "icon": "up", "x": 3, "y": 2, "group": "fine", "action": { "type": "keys", "combo": "Ctrl+Up" } },
+    { "id": "d0", "label": "0", "x": 0, "y": 3, "w": 2, "group": "num", "action": { "type": "keys", "combo": "Num0" } },
+    { "id": "dot", "label": ".", "x": 2, "y": 3, "group": "num", "action": { "type": "keys", "combo": "." } },
+    { "id": "ctrl-down", "label": "Ctrl+Down", "icon": "down", "x": 3, "y": 3, "group": "fine", "action": { "type": "keys", "combo": "Ctrl+Down" } },
+    { "id": "enter", "label": "Enter", "icon": "enter", "x": 0, "y": 4, "w": 2, "h": 2, "group": "ent", "action": { "type": "keys", "combo": "Enter" } },
+    { "id": "up10", "label": "Up", "icon": "up", "x": 2, "y": 4, "w": 2, "group": "coarse", "action": { "type": "keys", "combo": "Up", "repeat": 10, "intervalMs": 25 } },
+    { "id": "down10", "label": "Down", "icon": "down", "x": 2, "y": 5, "w": 2, "group": "coarse", "action": { "type": "keys", "combo": "Down", "repeat": 10, "intervalMs": 25 } },
+    { "id": "tab", "label": "Tab", "icon": "tab", "x": 0, "y": 6, "w": 2, "group": "ent", "action": { "type": "keys", "combo": "Tab" } },
+    { "id": "undo", "label": "Undo", "icon": "undo", "x": 2, "y": 6, "group": "hist", "action": { "type": "keys", "combo": "Ctrl+Z" } },
+    { "id": "redo", "label": "Redo", "icon": "redo", "x": 3, "y": 6, "group": "hist", "action": { "type": "keys", "combo": "Ctrl+Y" } }
+  ]
+}
