@@ -16,7 +16,7 @@ fn schema_file_matches_the_validator() {
     if std::env::var("TSP_UPDATE_SCHEMA").is_ok_and(|v| v == "1") {
         std::fs::write(&path, &want).unwrap();
     }
-    let got = std::fs::read_to_string(&path).unwrap_or_default();
+    let got = std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n");
     assert!(got == want, "schema/tsp-v2.schema.json is stale; run TSP_UPDATE_SCHEMA=1 cargo test -p tsp-core --test schema");
 }
 
