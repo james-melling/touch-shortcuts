@@ -117,6 +117,11 @@ pub struct Fit {
     pub header: f64,
     /// Rendered row height, after the fit rule.
     pub row_height: f64,
+    /// Top-left of cell (0, 0), cell width and gap, in logical px (for edit-mode hit tests).
+    pub grid_left: f64,
+    pub grid_top: f64,
+    pub cell_width: f64,
+    pub gap: f64,
     /// Button rects relative to the window's top-left, in input order.
     pub buttons: Vec<Rect>,
     /// Rows shrunk, or the pad clipped to the screen.
@@ -182,6 +187,10 @@ pub fn fit(grid: &Grid, cells: &[Cells], work_area: (u32, u32), edit: bool) -> F
         height: height.min(available).round() as u32,
         header,
         row_height,
+        grid_left: side,
+        grid_top: top,
+        cell_width: cw,
+        gap,
         buttons,
         warning,
         clipped,

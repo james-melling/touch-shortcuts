@@ -51,3 +51,11 @@ fn codes_are_unique_kebab_case() {
         assert!(!CODES[i + 1..].contains(c), "duplicate {c}");
     }
 }
+
+#[test]
+fn every_code_has_a_readme_anchor() {
+    let readme = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../README.md")).unwrap();
+    for c in CODES {
+        assert!(readme.contains(&format!("id=\"{c}\"")), "README \"Error codes\" has no #{c} anchor");
+    }
+}

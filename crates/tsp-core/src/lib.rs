@@ -7,4 +7,6 @@ pub mod geometry;
 pub mod layout;
 pub mod edit;
 pub mod codes;
+pub mod store;
+pub mod session;
 pub mod mackeys;
