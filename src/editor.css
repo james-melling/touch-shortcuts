@@ -1,0 +1,75 @@
+/* Edit panel (theme C). 44 px targets everywhere; only the middle scrolls. */
+.ed [hidden] { display: none !important; }
+html:has(body.ed), body.ed { background: #16181b; }
+body.ed { display: flex; flex-direction: column; height: 100%; font-size: 14px; }
+.ed button {
+  min-height: 44px; border-radius: 8px; padding: 0 10px;
+  font: 600 13px/1.2 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  color: #d5d8dc; background: #22262b; border: 1px solid #3a3f46;
+}
+.ed button.on { color: var(--ent-fg); border-color: var(--ent-border); background: rgba(110, 168, 255, 0.12); }
+.ed button.off { opacity: 0.4; }
+.ed button.danger { color: var(--red); }
+.ed button.primary { color: var(--ent-fg); border-color: var(--ent-border); }
+.ed button:focus-visible { outline: 2px solid var(--ent-fg); outline-offset: 1px; }
+.ed-title {
+  flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 0 0 14px; font-weight: 600; font-size: 13px; color: var(--ent-fg); border-bottom: 1px solid #2a2e33; cursor: grab;
+}
+.ed-done { min-width: 72px; margin-right: 0; color: var(--ent-fg) !important; border-color: var(--ent-border) !important; }
+.ed-tabs { flex: none; display: flex; gap: 6px; padding: 8px 14px 0; }
+.ed-tabs button { flex: 1; }
+.ed-top { flex: none; padding: 8px 14px; border-bottom: 1px solid #2a2e33; display: flex; flex-direction: column; gap: 6px; }
+.ed-selrow { display: flex; align-items: center; gap: 6px; }
+.ed-arrow { width: 44px; font-size: 20px !important; }
+.ed-sel { flex: 1; text-align: center; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-combo { font-size: 13px; color: var(--head-fg); min-height: 17px; }
+.ed-warn { font-size: 12px; color: var(--amber); }
+.ed-msg { font-size: 13px; line-height: 17px; min-height: 17px; }
+.ed-msg.amber { color: var(--amber); }
+.ed-msg.red { color: var(--red); }
+.ed-conflict { display: flex; flex-direction: column; gap: 6px; }
+.ed-scroll { flex: 1; overflow-y: auto; touch-action: pan-y; padding: 0 14px 14px; }
+.ed-caption { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--head-fg); margin: 12px 0 6px; }
+.ed-hint { font-size: 13px; color: var(--head-fg); margin-top: 12px; }
+.ed-path { font-size: 11px; color: var(--head-fg); margin-top: 12px; word-break: break-all; }
+.ed-mods, .ed-repeat, .ed-chips, .ed-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.ed-mods button { flex: 1; }
+.ed-pages { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+.ed-pages button { flex: 1 1 22%; padding: 0 4px; }
+.ed-pages .rec { color: var(--amber); }
+.ed-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.ed-keys button { padding: 0 2px; font-size: 15px; }
+.ed-stepper { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.ed-stepper > span:not(.ed-lab) { min-width: 40px; text-align: center; font-weight: 600; }
+.ed-stepper button { width: 44px; font-size: 18px; }
+.ed-stepper .chip { width: auto; font-size: 13px; }
+.ed-lab { min-width: 72px; color: var(--head-fg); font-size: 13px; }
+.ed-link { background: none !important; border: none !important; color: var(--ent-fg) !important; text-decoration: underline; padding: 0 !important; }
+.ed-disabled { border: 1px dashed var(--amber); border-radius: 8px; padding: 8px; display: flex; gap: 8px; align-items: center; color: var(--amber); font-size: 12px; }
+.ed-group { margin-top: 12px; border-top: 1px solid #2a2e33; }
+.ed-group summary { min-height: 44px; line-height: 44px; font-weight: 600; cursor: pointer; }
+.ed-dpad { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; justify-content: center; margin-top: 10px; }
+.ed-pos { text-align: center; line-height: 44px; color: var(--head-fg); font-size: 12px; }
+.ed-swatches, .ed-icons { display: flex; flex-wrap: wrap; gap: 6px; }
+.ed .swatch { min-width: 56px; color: var(--fg); border-color: var(--bd); }
+.ed .swatch.on { box-shadow: 0 0 0 2px #fff; }
+.ed .swatch.custom { display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid #fff; border-radius: 8px; min-height: 44px; }
+.ed .ico { width: 44px; padding: 0; }
+.ed .ico svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.ed-cell { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ed .wide { width: 100%; margin-top: 8px; }
+.ed-slider { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ed-slider input { flex: 1; height: 44px; }
+.ed-slider > span:last-child { min-width: 44px; text-align: right; }
+.ed input[type="text"] {
+  width: 100%; height: 44px; font: 16px "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: #e6e8eb;
+  background: #0f1113; border: 1px solid #3a3f46; border-radius: 8px; padding: 0 10px; user-select: text; -webkit-user-select: text;
+}
+.ed input.bad { border-color: var(--amber); }
+.ed-foot { flex: none; padding: 10px 14px; border-top: 1px solid #2a2e33; display: flex; flex-direction: column; gap: 6px; }
+.ed-foot-row { display: flex; gap: 6px; }
+.ed-foot-row button { flex: 1; }
+.ed-saved { font-size: 12px; color: var(--head-fg); text-align: right; }
+.ed button.warn { color: var(--amber); }
+.ed-padlist button { text-align: left; }

@@ -12,8 +12,7 @@ export default defineConfig(() => ({
   clearScreen: false,
   build: {
     rollupOptions: {
-      // Surface spike pages are temporary; remove with src-tauri/src/spike.rs.
-      input: { main: "index.html", spike: "spike.html", spikePanel: "spike-panel.html" },
+      input: { main: "index.html", editor: "editor.html" },
     },
   },
   // 2. tauri expects a fixed port, fail if that port is not available

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/editor.css" />
+    <title>Touch Shortcuts editor</title>
+    <script type="module" src="/src/editor.ts" defer></script>
+  </head>
+  <body class="ed">
+    <div class="ed-title" id="title">
+      <span id="title-text">Edit pad</span>
+      <button type="button" class="ed-done" id="done">Done</button>
+    </div>
+    <div class="ed-tabs">
+      <button type="button" data-tab="button" id="tab-button">Button</button>
+      <button type="button" data-tab="pad" id="tab-pad">Pad</button>
+    </div>
+    <div class="ed-top" id="top">
+      <div class="ed-selrow">
+        <button type="button" class="ed-arrow" id="prev" aria-label="Previous key">‹</button>
+        <div class="ed-sel" id="sel"></div>
+        <button type="button" class="ed-arrow" id="next" aria-label="Next key">›</button>
+      </div>
+      <div class="ed-combo" id="combo"></div>
+      <div class="ed-warn" id="same" hidden></div>
+      <div class="ed-msg" id="msg" role="status"></div>
+      <div class="ed-conflict" id="conflict" hidden>
+        <button type="button" id="keep">Keep my edits (overwrite file)</button>
+        <button type="button" id="load"></button>
+      </div>
+      <div class="ed-conflict" id="unsaved" hidden>
+        <button type="button" id="retry">Retry</button>
+        <button type="button" id="discard">Discard edits and close</button>
+      </div>
+    </div>
+    <div class="ed-scroll" id="scroll">
+      <section id="button-tab"></section>
+      <section id="pad-tab" hidden></section>
+    </div>
+    <div class="ed-foot" id="foot">
+      <div class="ed-foot-row" id="foot-button">
+        <button type="button" id="dup">Duplicate</button>
+        <button type="button" id="mirror" hidden></button>
+        <button type="button" id="del" class="danger">Delete</button>
+      </div>
+      <div class="ed-saved" id="saved"></div>
+    </div>
+  </body>
+</html>

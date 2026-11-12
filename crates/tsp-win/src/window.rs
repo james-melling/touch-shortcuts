@@ -2,6 +2,7 @@
 //! no-activate panels, foreground capture/restore, and the end-session
 //! subclass. First used by the Surface spike; kept for the real editor.
 
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
@@ -18,6 +19,14 @@ const PANEL_SUBCLASS_ID: usize = 2;
 const ENDSESSION_SUBCLASS_ID: usize = 3;
 
 static ENDSESSION_SEEN: AtomicU32 = AtomicU32::new(0);
+type Handler = Box<dyn Fn() + Send + Sync>;
+static ENDSESSION_HANDLER: OnceLock<Handler> = OnceLock::new();
+
+/// Called (once per session end) when Windows logs off or shuts down. It must
+/// be quick and never block; the session end is never vetoed.
+pub fn set_endsession_handler(f: impl Fn() + Send + Sync + 'static) {
+    let _ = ENDSESSION_HANDLER.set(Box::new(f));
+}
 
 fn hwnd(v: isize) -> HWND {
     HWND(v as *mut _)
@@ -138,8 +147,13 @@ pub fn activate(h: isize) -> bool {
 
 unsafe extern "system" fn endsession_proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM, _id: usize, _data: usize) -> LRESULT {
     // Must never panic. Pass-through only: the real editor writes unsaved edits here.
-    if msg == WM_QUERYENDSESSION || msg == WM_ENDSESSION {
-        ENDSESSION_SEEN.fetch_add(1, Ordering::Relaxed);
+    if msg == WM_QUERYENDSESSION || (msg == WM_ENDSESSION && wp.0 != 0) {
+        // First notice only; catch_unwind keeps a panic from crossing extern "system".
+        if ENDSESSION_SEEN.fetch_add(1, Ordering::Relaxed) == 0 {
+            if let Some(h) = ENDSESSION_HANDLER.get() {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(h));
+            }
+        }
     }
     unsafe { DefSubclassProc(h, msg, wp, lp) }
 }

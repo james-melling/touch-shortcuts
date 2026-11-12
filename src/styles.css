@@ -20,7 +20,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
-  background: var(--pad-bg);
+  background: transparent;
   color: #c9ccd1;
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   overflow: hidden;
@@ -93,3 +93,56 @@ html, body {
 .menu .info { font-weight: 400; font-size: 12px; line-height: 16px; padding: 8px 14px; color: var(--amber); white-space: normal; }
 .menu button.confirm { color: var(--red); }
 .menu hr { border: 0; border-top: 2px solid #3a3f46; }
+
+/* ---- edit mode (pad) ---- */
+.done-btn {
+  flex: none; height: 44px; min-width: 64px; margin: -10px 0; padding: 0 12px; border-radius: 8px;
+  font: 700 14px/1 inherit; color: var(--ent-fg); background: rgba(110, 168, 255, 0.12); border: 1px solid var(--ent-border);
+}
+.editing .row1 { height: 34px; }
+.editing .prof { color: var(--ent-fg); }
+.cell {
+  position: absolute; pointer-events: auto; border: 1px dashed #3a3f46; border-radius: var(--k-radius);
+}
+.cell.sel { border: 2px solid var(--ent-fg); }
+.editing .k { --bd-edit: color-mix(in srgb, var(--bd) 55%, transparent); border-color: var(--bd-edit); }
+.k.sel, .editing .k.sel {
+  border-color: #ffffff; box-shadow: 0 0 0 2px var(--ent-fg);
+}
+.k.sel::before {
+  content: ""; position: absolute; top: -2px; left: -2px; width: 10px; height: 10px;
+  border-top: 3px solid var(--ent-fg); border-left: 3px solid var(--ent-fg); border-top-left-radius: var(--k-radius);
+}
+.k.none { border-style: dashed; border-width: 1px; }
+.k.none .label { opacity: 0.6; }
+.k.none::after { content: "+"; position: absolute; top: 2px; right: 8px; font-size: 16px; color: var(--head-fg); }
+.handle {
+  position: absolute; width: 44px; height: 44px; pointer-events: auto; z-index: 3;
+}
+.handle::before {
+  content: ""; position: absolute; left: 0; top: 0; width: 0; height: 0;
+  border-top: 16px solid var(--ent-fg); border-right: 16px solid transparent;
+}
+.ghost {
+  position: absolute; z-index: 4; pointer-events: none; border-radius: var(--k-radius);
+  border: 2px solid var(--ent-fg); background: rgba(110, 168, 255, 0.18);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--red);
+}
+.ghost.refused { border-color: var(--red); background: rgba(255, 107, 107, 0.15); }
+.victim {
+  position: absolute; z-index: 2; pointer-events: none; border-radius: var(--k-radius);
+  border: 2px dashed var(--amber); background: rgba(224, 164, 88, 0.12); transition: all 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) { .victim { transition: none; } }
+.menu button.warn { color: var(--amber); }
+
+/* ---- transparency: background opacity = slab alpha; pad opacity fades slab + keys ---- */
+.slab {
+  position: absolute; inset: 0; border-radius: 12px; pointer-events: none;
+  background: rgba(20, 22, 25, var(--bgo, 0.97)); opacity: var(--pado, 1);
+}
+#keys { opacity: var(--pado, 1); }
+/* The header and menu stay legible at every setting (backing >= 0.9, never faded). */
+.head { background: rgba(20, 22, 25, 0.92); border-radius: 8px; z-index: 1; }
+/* Keys keep their own backing so labels read over the app below. */
+.k { background-color: rgba(20, 22, 25, 0.92); background-image: linear-gradient(var(--bg), var(--bg)); }
