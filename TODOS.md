@@ -114,3 +114,18 @@
 **Pros:** Predictable layouts for users who dislike reflow. **Cons:** A second movement rule to test and explain.
 **Context:** Deferred by /autoplan DX phase 2026-11-11 as a taste decision. Lives in `tsp-core::layout` as a flag on `place`.
 **Effort:** human S / CC S. **Priority:** P3. **Depends on:** the in-app editor (v0.2).
+
+### Pre-release Surface check with R1 (blocks v0.2.0-pre)
+**What:** On a pen Surface with R1: panel pen controls never take focus; drag hide/show keeps R1 in front; a label commit returns focus to R1; the gate (Edit → edits → Label → Done: R1 in front, caret in the same field); floating mode taps in gaps reach R1.
+**Why:** The 2026-11-12 spike passed for the window but never exercised these (no pen Surface since). Design doc Build order step 6.
+**Effort:** 20 min on site. **Priority:** P1. **Depends on:** a Windows build of the editor.
+
+### macOS floating tap-through
+**What:** At background 0% on macOS, taps in the gaps should reach the app below (transparent-pixel pass-through, or toggling `ignoresMouseEvents` from the cursor position).
+**Why:** The Windows region is in; on macOS the floating pad still catches taps in its gaps.
+**Effort:** human M / CC S. **Priority:** P3 (Windows first).
+
+### Editor polish left from the design
+**What:** "Show file" (opener reveal) and "Save as new pad" on save failure; panel moves up while the Windows touch keyboard (InputPane) is docked; a Blank preset highlights its first empty cell; Windows CI smoke test that opens and closes the panel.
+**Why:** In the design doc but not needed for the core loop; each is small.
+**Effort:** human M / CC S each. **Priority:** P2.
