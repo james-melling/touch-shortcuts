@@ -12,6 +12,11 @@ const msg = (t: string) => { $("msg").textContent = t; };
 let activated = false;
 
 const CHECKS: [string, string][] = [
+  ["rerun-pen", "RE-RUN 1: Compass/R1 in front with the caret in a field. Tap the chips: it stays in front (top line 'other: …')."],
+  ["rerun-hide", "RE-RUN 2: same, then Hide 1.5 s: Compass/R1 is still in front afterwards."],
+  ["rerun-label", "RE-RUN 3: tap Label, write, press Enter (or tap a chip): Compass/R1 comes back to the front with the caret where it was. Then chips again: it stays in front."],
+  ["rerun-gate", "RE-RUN 4 (GATE): caret in a Compass/R1 field → pad Panel → chips → Label → write → Enter → Done: Compass/R1 in front, caret in the same field. 'Done returns to' must name it before you tap Done."],
+  ["rerun-pad", "RE-RUN 5: after Label + Enter, tap pad header buttons: the top line never says 'pad'."],
   ["bg0-pen", "BG 0% with Tap-thru on: 10 pen taps in the gaps between keys all reach R1."],
   ["bg0-finger", "Same with 10 finger taps in the gaps."],
   ["bg0-keys", "BG 0%: 20 taps on keys all send (R1's value changes every time)."],
@@ -33,7 +38,17 @@ function down(el: HTMLElement, fn: (e: PointerEvent) => void) {
 }
 
 /** First tap on a text field activates the panel, then focuses the field. */
+function rearm() {
+  if (!activated) return;
+  activated = false;
+  invoke<string>("spike_panel_rearm").then(msg);
+}
+
 function typing(el: HTMLInputElement | HTMLTextAreaElement) {
+  el.addEventListener("blur", rearm);
+  el.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter" && el instanceof HTMLInputElement) { e.preventDefault(); el.blur(); rearm(); }
+  });
   el.addEventListener("pointerdown", (e) => {
     if (activated) return; // window is active now: let the tap focus natively
     e.preventDefault();

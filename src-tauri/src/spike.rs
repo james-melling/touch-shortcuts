@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder};
 
-use super::{AppState, MARGIN, PadView, pad_view, work_area_logical_height};
+use super::{AppState, MARGIN, PadView, pad_view, work_area_logical, work_area_logical_height};
 #[cfg(windows)]
 use tsp_core::executor::Foreground;
 #[cfg(windows)]
@@ -61,8 +61,8 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     if app.get_webview_window(PAD).is_some() {
         return Ok(());
     }
-    let wa = work_area_logical_height(app).unwrap_or(2000);
-    let (_, layout) = pad_view(&app.state::<AppState>().active.lock().unwrap(), wa.saturating_sub(HEAD_EXTRA));
+    let (ww, wa) = work_area_logical(app);
+    let (_, layout) = pad_view(&app.state::<AppState>().active.lock().unwrap(), (ww, wa.saturating_sub(HEAD_EXTRA)));
     let (w, h) = (layout.width as f64, (layout.height + HEAD_EXTRA) as f64);
     let main = app.get_webview_window("main").ok_or("main window missing")?;
     let m = main.primary_monitor().map_err(|e| e.to_string())?.ok_or("no monitor")?;
@@ -115,8 +115,8 @@ pub struct SpikePad {
 
 #[tauri::command]
 pub fn spike_pad(app: AppHandle, state: tauri::State<AppState>, spike: tauri::State<SpikeState>) -> SpikePad {
-    let wa = work_area_logical_height(&app).unwrap_or(2000);
-    let (pad, _) = pad_view(&state.active.lock().unwrap(), wa.saturating_sub(HEAD_EXTRA));
+    let (ww, wa) = work_area_logical(&app);
+    let (pad, _) = pad_view(&state.active.lock().unwrap(), (ww, wa.saturating_sub(HEAD_EXTRA)));
     SpikePad { pad, head_extra: HEAD_EXTRA, results: spike.results.display().to_string() }
 }
 
@@ -134,7 +134,6 @@ pub struct SpikeStatus {
 #[tauri::command]
 pub fn spike_status(app: AppHandle, spike: tauri::State<SpikeState>) -> SpikeStatus {
     let panel_open = app.get_webview_window(PANEL).is_some();
-    let target = spike.target.lock().unwrap().1.clone();
     #[cfg(windows)]
     let (foreground, kind, endsession_seen) = {
         let fg = win::window::foreground();
@@ -148,6 +147,14 @@ pub fn spike_status(app: AppHandle, spike: tauri::State<SpikeState>) -> SpikeSta
         } else {
             "other"
         };
+        // While the panel is open, the return target follows the last real app
+        // window in front (so opening R1 after the panel still works).
+        let last = win::last_other();
+        if panel_open && kind == "other" && last != 0 && spike.target.lock().unwrap().0 != last {
+            let title = win::describe_raw(last).title;
+            *spike.target.lock().unwrap() = (last, title.clone());
+            record(&app, &format!("target -> \"{title}\""));
+        }
         (t.title, kind, win::window::endsession_seen())
     };
     #[cfg(not(windows))]
@@ -159,6 +166,7 @@ pub fn spike_status(app: AppHandle, spike: tauri::State<SpikeState>) -> SpikeSta
         drop(last);
         record(&app, &format!("foreground -> {summary}"));
     }
+    let target = spike.target.lock().unwrap().1.clone();
     SpikeStatus { foreground, kind, panel_open, target, endsession_seen }
 }
 
@@ -169,18 +177,7 @@ pub fn spike_region(app: AppHandle, rects: Vec<[f64; 4]>, on: bool) -> Result<St
     let pad = app.get_webview_window(PAD).ok_or("spike pad not open")?;
     let s = pad.scale_factor().map_err(|e| e.to_string())?;
     let size = pad.inner_size().map_err(|e| e.to_string())?;
-    let (max_w, max_h) = (size.width as i32, size.height as i32);
-    let px: Vec<(i32, i32, i32, i32)> = rects
-        .iter()
-        .take(200)
-        .map(|[x, y, w, h]| {
-            let l = ((x * s).floor() as i32).clamp(0, max_w);
-            let t = ((y * s).floor() as i32).clamp(0, max_h);
-            let r = (((x + w) * s).ceil() as i32).clamp(0, max_w);
-            let b = (((y + h) * s).ceil() as i32).clamp(0, max_h);
-            (l, t, r, b)
-        })
-        .collect();
+    let px = tsp_core::layout::region_rects(&rects, s, (size.width, size.height));
     #[cfg(windows)]
     let result = {
         let h = hwnd_of(&app, PAD);
@@ -271,6 +268,26 @@ pub fn spike_panel_activate(app: AppHandle) -> bool {
     let ok = app.get_webview_window(PANEL).map(|w| w.set_focus().is_ok()).unwrap_or(false);
     record(&app, &format!("panel-activate ok={ok}"));
     ok
+}
+
+/// Label committed (Enter, or tapping away): back to no-activate and give
+/// the foreground straight back to the captured target.
+#[tauri::command]
+pub fn spike_panel_rearm(app: AppHandle) -> String {
+    let (target, title) = app.state::<SpikeState>().target.lock().unwrap().clone();
+    #[cfg(windows)]
+    let result = {
+        win::window::set_no_activate(hwnd_of(&app, PANEL), true);
+        if win::window::activate(target) && win::window::foreground() == target {
+            format!("Label done: \"{title}\" is back in front.")
+        } else {
+            format!("Label done, but couldn't return to \"{title}\". Tap it.")
+        }
+    };
+    #[cfg(not(windows))]
+    let result = { let _ = (target, &app); format!("Label done (restore is Windows-only; target \"{title}\")") };
+    record(&app, &format!("panel-rearm {result}"));
+    result
 }
 
 /// Simulates the drag: hide the panel for 1.5 s, then show it without activation.

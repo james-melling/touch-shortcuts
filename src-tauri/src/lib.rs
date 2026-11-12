@@ -21,7 +21,7 @@ use tsp_core::combo::Combo;
 use tsp_core::executor::{self, Clock, Foreground, Outcome, Run, SideEffects, Target};
 #[cfg(not(any(windows, target_os = "macos")))]
 use tsp_core::{combo::KeyEvent, executor::{Elevation, KeySink}};
-use tsp_core::geometry::{self, GridSpec, MARGIN};
+use tsp_core::geometry::{self, Cells, Grid, MARGIN};
 use tsp_core::profile::{Action, Dock, Group, Loaded, load_profile};
 use tsp_core::queue::{TapQueue, TapResult};
 
@@ -136,11 +136,13 @@ fn group_name(g: &Group) -> &'static str {
     }
 }
 
-fn pad_view(active: &Active, work_area_height: u32) -> (PadView, geometry::Layout) {
+const NOT_SET: &str = "Not set: ··· → Edit";
+
+fn pad_view(active: &Active, work_area: (u32, u32)) -> (PadView, geometry::Fit) {
     let p = &active.loaded.profile;
-    let spans: Vec<u32> = p.buttons.iter().map(|b| b.span).collect();
-    let spec = GridSpec { grid_columns: p.pad.grid_columns, button_width: p.pad.button_width, button_height: p.pad.button_height, gap: p.pad.gap, spans: &spans };
-    let layout = geometry::layout(&spec, work_area_height);
+    let grid = Grid { columns: p.pad.columns, rows: p.pad.rows, cell_width: p.pad.cell_width, cell_height: p.pad.cell_height, gap: p.pad.gap, scale: p.pad.scale };
+    let cells: Vec<Cells> = p.buttons.iter().map(|b| Cells { x: b.x, y: b.y, w: b.w, h: b.h }).collect();
+    let layout = geometry::fit(&grid, &cells, work_area, false);
     let mut warnings = active.warnings.clone();
     if let Some(w) = &layout.warning {
         warnings.push(w.clone());
@@ -155,8 +157,12 @@ fn pad_view(active: &Active, work_area_height: u32) -> (PadView, geometry::Layou
             group: group_name(&b.group),
             icon: b.icon.clone(),
             color: b.color.clone(),
-            repeat: match &b.action { Action::Keys { repeat, .. } => *repeat, Action::Disabled { .. } => 1 },
-            disabled: match &b.action { Action::Disabled { code, reason } => Some(format!("{code}: {reason}")), Action::Keys { .. } => None },
+            repeat: match &b.action { Action::Keys { repeat, .. } => *repeat, Action::None | Action::Disabled { .. } => 1 },
+            disabled: match &b.action {
+                Action::Disabled { code, reason } => Some(format!("{code}: {reason}")),
+                Action::None => Some(NOT_SET.to_string()),
+                Action::Keys { .. } => None,
+            },
             x: r.x,
             y: r.y,
             w: r.w,
@@ -377,8 +383,7 @@ struct AppError {
 
 #[tauri::command]
 fn get_pad(state: tauri::State<AppState>, app: AppHandle) -> PadView {
-    let wa = work_area_logical_height(&app).unwrap_or(2000);
-    pad_view(&state.active.lock().unwrap(), wa).0
+    pad_view(&state.active.lock().unwrap(), work_area_logical(&app)).0
 }
 
 #[tauri::command]
@@ -389,6 +394,7 @@ fn run_action(button_id: String, state: tauri::State<AppState>) -> Result<String
         let b = p.buttons.iter().find(|b| b.id == button_id).ok_or_else(|| AppError { code: "unknown-button".into(), message: format!("no button \"{button_id}\" in the loaded profile") })?;
         match &b.action {
             Action::Disabled { code, reason } => return Err(AppError { code: (*code).into(), message: format!("{code}: {reason}") }),
+            Action::None => return Err(AppError { code: "action-unknown".into(), message: NOT_SET.into() }),
             Action::Keys { combo, repeat, interval_ms } => Job {
                 button_id: b.id.clone(),
                 label: b.label.clone(),
@@ -429,8 +435,7 @@ fn reload_profile(state: tauri::State<AppState>, app: AppHandle) -> PadView {
         *active = fresh;
     }
     state.shared.0.lock().unwrap().queue.clear_pending();
-    let wa = work_area_logical_height(&app).unwrap_or(2000);
-    let (view, layout) = pad_view(&active, wa);
+    let (view, layout) = pad_view(&active, work_area_logical(&app));
     drop(active);
     place_window(&app, &layout);
     view
@@ -454,6 +459,18 @@ fn focus_mode(state: tauri::State<AppState>) -> u8 {
 
 // ---------- window placement ----------
 
+/// Primary monitor work area in logical px (falls back to a large screen).
+fn work_area_logical(app: &AppHandle) -> (u32, u32) {
+    (|| {
+        let w = app.get_webview_window("main")?;
+        let m = w.primary_monitor().ok()??;
+        let scale = m.scale_factor();
+        let size = m.work_area().size;
+        Some(((size.width as f64 / scale) as u32, (size.height as f64 / scale) as u32))
+    })()
+    .unwrap_or((2560, 2000))
+}
+
 fn work_area_logical_height(app: &AppHandle) -> Option<u32> {
     let w = app.get_webview_window("main")?;
     let m = w.primary_monitor().ok()??;
@@ -461,7 +478,7 @@ fn work_area_logical_height(app: &AppHandle) -> Option<u32> {
     Some((m.work_area().size.height as f64 / scale) as u32)
 }
 
-fn place_window(app: &AppHandle, layout: &geometry::Layout) {
+fn place_window(app: &AppHandle, layout: &geometry::Fit) {
     let Some(w) = app.get_webview_window("main") else { return };
     let Ok(Some(m)) = w.primary_monitor() else { return };
     let scale = m.scale_factor();
@@ -533,8 +550,7 @@ pub fn run() {
             app.manage(AppState { shared: shared.clone(), active: Mutex::new(active), started, config_dir, settings: Mutex::new(settings), focus_mode });
             spawn_worker(handle.clone(), shared, started, focus_mode, pad_elevated, log);
 
-            let wa = work_area_logical_height(&handle).unwrap_or(2000);
-            let layout = pad_view(&handle.state::<AppState>().active.lock().unwrap(), wa).1;
+            let layout = pad_view(&handle.state::<AppState>().active.lock().unwrap(), work_area_logical(&handle)).1;
             place_window(&handle, &layout);
             if spike::flag_set() {
                 spike::start(&handle).map_err(|e| format!("spike: {e}"))?;
@@ -568,6 +584,7 @@ pub fn run() {
             spike::spike_endsession,
             spike::spike_panel_open,
             spike::spike_panel_activate,
+            spike::spike_panel_rearm,
             spike::spike_panel_hide_show,
             spike::spike_panel_done,
             spike::spike_record,
