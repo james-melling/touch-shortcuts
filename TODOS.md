@@ -105,3 +105,12 @@
 **Effort:** human M / CC S. **Priority:** P2. **Depends on:** Rust-computed geometry.
 
 ## Completed
+
+## Editor
+
+### "Swap only" moves (no shove)
+**What:** A Pad-tab toggle so a move or resize only swaps with an equal-size button and never shoves others.
+**Why:** Every move currently runs the shove rule; the only escape from an unwanted shove is Undo edit (DX review X-3, 2026-11-11).
+**Pros:** Predictable layouts for users who dislike reflow. **Cons:** A second movement rule to test and explain.
+**Context:** Deferred by /autoplan DX phase 2026-11-11 as a taste decision. Lives in `tsp-core::layout` as a flag on `place`.
+**Effort:** human S / CC S. **Priority:** P3. **Depends on:** the in-app editor (v0.2).
