@@ -105,7 +105,8 @@ Sizes are w×h = columns × rows.
 | `buttons[].group` | `num` `ent` `fine` `coarse` `hist` `custom` | | `num` |
 | `buttons[].icon` | `up` `down` `left` `right` `enter` `tab` `undo` `redo` | | none |
 | `buttons[].color` | `#RRGGBB` | | group colour |
-| `buttons[].action` | `{ "type": "keys", "combo", "repeat" 1-50, "intervalMs" 10-1000 }` or `{ "type": "none" }` | | required |
+| `buttons[].textSize` | `small` `medium` `large` | labels also shrink to fit | `large` |
+| `buttons[].action` | `{ "type": "keys", "combo", "repeat" 1-50, "intervalMs" 10-1000 }`, `{ "type": "page", "target": "fx.tsp.json" or "back" }` or `{ "type": "none" }` | | required |
 
 Unknown fields are kept when the editor saves. Format v1 files still load.
 
@@ -165,6 +166,7 @@ Unknown fields are kept when the editor saves. Format v1 files still load.
 | <a id="restore-failed"></a>`restore-failed` | Couldn't give focus back to R1 after Done; tap it. |
 | <a id="editor-open-failed"></a>`editor-open-failed` | The edit panel couldn't open; try ··· → Edit again. |
 | <a id="region-unavailable"></a>`region-unavailable` | Floating tap-through unavailable; background shown at 30%. |
+| <a id="pad-not-found"></a>`pad-not-found` | A go-to-pad button points at a pad file that isn't there (or there's no previous pad for Back). |
 
 ## macOS
 

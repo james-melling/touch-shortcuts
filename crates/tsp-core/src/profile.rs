@@ -59,9 +59,34 @@ pub enum Group { Num, Ent, Fine, Coarse, Hist, Custom }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Dock { Right, Left }
 
+/// Where a "go to pad" button leads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PageTarget {
+    /// The pad that was active before the last "go to pad".
+    Back,
+    /// A pad file in the same folder as the current pad (file name only).
+    File(String),
+}
+
+/// Label text size; labels also shrink to fit their key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextSize { Small, Medium, Large }
+
+impl TextSize {
+    pub fn name(self) -> &'static str {
+        match self {
+            TextSize::Small => "small",
+            TextSize::Medium => "medium",
+            TextSize::Large => "large",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     Keys { combo: Combo, repeat: u32, interval_ms: u32 },
+    /// `{ "type": "page", "target": "fx.tsp.json" | "back" }`: switch pads.
+    Page { target: PageTarget },
     /// `{ "type": "none" }`: a button not assigned yet. Sends nothing.
     None,
     /// Unknown key name, unknown action type or blocked system key: the key
@@ -83,6 +108,7 @@ pub struct Button {
     /// Only built-in icons; an unknown icon is `None` here (and kept in the doc).
     pub icon: Option<String>,
     pub color: Option<String>,
+    pub text_size: TextSize,
     pub action: Action,
 }
 
@@ -137,8 +163,8 @@ pub struct Loaded {
 const TOP_FIELDS: &[&str] = &["$schema", "schema", "name", "acceptTouch", "targetApps", "pad", "buttons"];
 const PAD_FIELDS: &[&str] = &["grid", "cellWidth", "cellHeight", "gap", "scale", "padOpacity", "backgroundOpacity", "dock", "theme"];
 const GRID_FIELDS: &[&str] = &["columns", "rows"];
-const BUTTON_FIELDS: &[&str] = &["id", "label", "x", "y", "w", "h", "group", "icon", "color", "action"];
-const ACTION_FIELDS: &[&str] = &["type", "combo", "repeat", "intervalMs"];
+const BUTTON_FIELDS: &[&str] = &["id", "label", "x", "y", "w", "h", "group", "icon", "color", "textSize", "action"];
+const ACTION_FIELDS: &[&str] = &["type", "combo", "repeat", "intervalMs", "target"];
 /// Renamed fields that are too far from their new name for the edit-distance check.
 const RENAMED: &[(&str, &str)] = &[("opacity", "padOpacity")];
 const V1_PAD_FIELDS: &[&str] = &["gridColumns", "buttonWidth", "buttonHeight", "gap"];
@@ -264,6 +290,17 @@ fn action(obj: &Map<String, Value>, locator: &str, allow_system_keys: bool, ctx:
     match kind {
         "keys" => {}
         "none" => return Ok(Action::None),
+        "page" => {
+            ctx.check_fields(a, ACTION_FIELDS, alocator.trim_end_matches('.'));
+            let target = a.get("target").and_then(Value::as_str).unwrap_or("");
+            return Ok(match page_target(target) {
+                Some(t) => Action::Page { target: t },
+                None => Action::Disabled {
+                    code: "action-unknown",
+                    reason: format!("go-to-pad target \"{target}\" must be \"back\" or a pad file name like \"fx.tsp.json\""),
+                },
+            });
+        }
         _ => return Ok(Action::Disabled { code: "action-unknown", reason: format!("action type \"{kind}\" is not supported by this version") }),
     }
     ctx.check_fields(a, ACTION_FIELDS, alocator.trim_end_matches('.'));
@@ -281,6 +318,19 @@ fn action(obj: &Map<String, Value>, locator: &str, allow_system_keys: bool, ctx:
         });
     }
     Ok(Action::Keys { combo, repeat, interval_ms })
+}
+
+/// "back", or a bare `*.tsp.json` file name (no folders, so a shared pad can
+/// only point at pads next to it).
+pub fn page_target(target: &str) -> Option<PageTarget> {
+    if target == "back" {
+        return Some(PageTarget::Back);
+    }
+    let ok = target.ends_with(".tsp.json")
+        && (10..=80).contains(&target.len())
+        && !target.starts_with('.')
+        && target.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '-'));
+    ok.then(|| PageTarget::File(target.to_string()))
 }
 
 fn group(name: Option<&str>, locator: &str, ctx: &mut Ctx) -> Group {
@@ -468,8 +518,14 @@ fn validate_v2(top: &mut Map<String, Value>, allow_system_keys: bool, ctx: &mut 
             Some(c) if valid_color(c) => Some(c.to_string()),
             Some(c) => return Err(bound(format!("{locator}color \"{c}\" must look like #RRGGBB. Fix it, {RELOAD}"))),
         };
+        let text_size = match b.get("textSize").and_then(Value::as_str) {
+            None | Some("large") => TextSize::Large,
+            Some("medium") => TextSize::Medium,
+            Some("small") => TextSize::Small,
+            Some(other) => return Err(bound(format!("{locator}textSize \"{other}\" must be small, medium or large. Fix it, {RELOAD}"))),
+        };
         let action = action(b, &locator, allow_system_keys, ctx)?;
-        buttons.push(Button { id, label, x, y, w, h, group, icon, color, action });
+        buttons.push(Button { id, label, x, y, w, h, group, icon, color, text_size, action });
     }
     Ok(Profile { name, accept_touch, target_apps, pad, buttons })
 }
@@ -611,11 +667,13 @@ pub fn v2_json_schema() -> Value {
                         "group": { "enum": ["num", "ent", "fine", "coarse", "hist", "custom"], "default": "num", "description": "Colour group." },
                         "icon": { "enum": ICONS },
                         "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "Overrides the group colour." },
+                        "textSize": { "enum": ["small", "medium", "large"], "default": "large", "description": "Label size; labels also shrink to fit the key." },
                         "action": {
                             "type": "object",
                             "required": ["type"],
                             "properties": {
-                                "type": { "enum": ["keys", "none"], "description": "keys = send a key combo; none = not set yet." },
+                                "type": { "enum": ["keys", "page", "none"], "description": "keys = send a key combo; page = go to another pad; none = not set yet." },
+                                "target": { "type": "string", "description": "For page: \"back\" or a pad file in the same folder, e.g. \"fx.tsp.json\"." },
                                 "combo": { "type": "string", "description": "Mod+Mod+Key, e.g. \"Ctrl+Down\", \"Num7\", \"Enter\"." },
                                 "repeat": int(REPEAT, "Presses per tap."),
                                 "intervalMs": int(INTERVAL_MS, "Start-to-start time between presses.")
@@ -1010,5 +1068,25 @@ mod tests {
         for e in [ComboError::Empty, ComboError::ModifiersOnly, ComboError::TooManyKeys, ComboError::DuplicateModifier("Ctrl"), ComboError::UnknownKey("x".into())] {
             let _ = disabled_from_combo_error("A", &e);
         }
+    }
+
+    #[test]
+    fn page_actions_and_text_size_load() {
+        let l = load(&v2_with(
+            r#"{"id":"go","label":"FX","x":0,"y":0,"textSize":"small","action":{"type":"page","target":"fx pad.tsp.json"}},
+               {"id":"bk","label":"Back","x":1,"y":0,"action":{"type":"page","target":"back"}},
+               {"id":"bad","label":"Bad","x":2,"y":0,"action":{"type":"page","target":"../secret.tsp.json"}}"#,
+        ))
+        .unwrap();
+        let b = &l.profile.buttons;
+        assert_eq!(b[0].action, Action::Page { target: PageTarget::File("fx pad.tsp.json".into()) });
+        assert_eq!(b[0].text_size, TextSize::Small);
+        assert_eq!(b[1].action, Action::Page { target: PageTarget::Back });
+        assert_eq!(b[1].text_size, TextSize::Large);
+        assert!(matches!(b[2].action, Action::Disabled { code: "action-unknown", .. }), "no folders in targets");
+        assert!(page_target("C:\\x.tsp.json").is_none());
+        assert!(page_target("notes.txt").is_none());
+        let e = err(&v2_with(r#"{"id":"a","label":"A","x":0,"y":0,"textSize":"huge","action":{"type":"none"}}"#));
+        assert!(e.message.contains("textSize"), "{}", e.message);
     }
 }

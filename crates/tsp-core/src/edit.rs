@@ -11,7 +11,7 @@ use serde_json::{Map, Value, json};
 use crate::combo::{Combo, canonical_text, parse_combo, same_keys};
 use crate::geometry::Cells;
 use crate::layout::{self, Item, LayoutError};
-use crate::profile::{Action, Button, Loaded, MAX_BUTTONS, MAX_PROFILE_BYTES, Profile, bounds, load_doc, snap_hundredths, to_text};
+use crate::profile::{Action, Button, Loaded, MAX_BUTTONS, MAX_PROFILE_BYTES, Profile, bounds, load_doc, page_target, snap_hundredths, to_text};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EditError {
@@ -30,6 +30,9 @@ fn refuse(code: &'static str, message: String) -> EditError {
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum ActionSpec {
     Keys { combo: String, repeat: u32 },
+    /// Go to another pad: "back" or a pad file name in the same folder.
+    /// `name` (the target pad's name) is used for the auto label.
+    Page { target: String, name: Option<String> },
     None,
 }
 
@@ -57,6 +60,8 @@ pub enum Op {
     SetColor { button_id: String, color: Option<String> },
     SetIcon { button_id: String, icon: Option<String> },
     SetGroup { button_id: String, group: String },
+    /// "small" | "medium" | "large" (None = default large).
+    SetTextSize { button_id: String, size: Option<String> },
     /// At a selected empty cell, or (None) at the first free cell.
     Add { at: Option<(u32, u32)> },
     Duplicate { button_id: String, mirror: bool },
@@ -74,6 +79,7 @@ impl Op {
             Op::SetColor { .. } => "set_color",
             Op::SetIcon { .. } => "set_icon",
             Op::SetGroup { .. } => "set_group",
+            Op::SetTextSize { .. } => "set_text_size",
             Op::Add { .. } => "add",
             Op::Duplicate { .. } => "duplicate",
             Op::Delete { .. } => "delete",
@@ -90,6 +96,7 @@ impl Op {
             | Op::SetColor { button_id, .. }
             | Op::SetIcon { button_id, .. }
             | Op::SetGroup { button_id, .. }
+            | Op::SetTextSize { button_id, .. }
             | Op::Duplicate { button_id, .. }
             | Op::Delete { button_id } => Some(button_id),
             Op::Add { .. } | Op::SetPad { .. } => None,
@@ -217,8 +224,17 @@ pub fn auto_label(combo: &Combo, repeat: u32) -> String {
     out.chars().take(bounds::LABEL_CHARS).collect()
 }
 
+/// Auto label for a go-to-pad button: "→ Back", "→ <pad name>", or the file name without .tsp.json.
+pub fn page_label(target: &str, name: Option<&str>) -> String {
+    let shown = if target == "back" { "Back" } else { name.unwrap_or_else(|| target.trim_end_matches(".tsp.json")) };
+    format!("→ {shown}").chars().take(bounds::LABEL_CHARS).collect()
+}
+
 fn raw_auto_label(action: Option<&Value>) -> Option<String> {
     let a = action?.as_object()?;
+    if a.get("type")?.as_str()? == "page" {
+        return Some(page_label(a.get("target")?.as_str()?, None));
+    }
     if a.get("type")?.as_str()? != "keys" {
         return None;
     }
@@ -379,6 +395,17 @@ pub fn apply(current: &Loaded, op: &Op, allow_system_keys: bool) -> Result<Appli
                 ActionSpec::None => {
                     obj.insert("action".into(), json!({ "type": "none" }));
                 }
+                ActionSpec::Page { target, name } => {
+                    if page_target(target).is_none() {
+                        return Err(refuse("action-unknown", format!("action-unknown: \"{target}\" isn't a pad file in this folder.")));
+                    }
+                    obj.insert("action".into(), json!({ "type": "page", "target": target }));
+                    // Follows while the label is "New", a keys auto label, or any "→ …" page label.
+                    let page_auto = obj.get("label").and_then(Value::as_str).is_some_and(|l| l.starts_with("→ "));
+                    if follows || page_auto {
+                        put(obj, "label", json!(page_label(target, name.as_deref())), &["id"]);
+                    }
+                }
                 ActionSpec::Keys { combo, repeat } => {
                     let parsed = parse_combo(combo).map_err(|_| refuse("key-unknown", format!("key-unknown: \"{combo}\" is not a key this version can send.")))?;
                     let text = canonical_text(&parsed);
@@ -422,6 +449,16 @@ pub fn apply(current: &Loaded, op: &Op, allow_system_keys: bool) -> Result<Appli
                 None => {
                     obj.shift_remove("icon");
                 }
+            }
+        }
+        Op::SetTextSize { button_id, size } => {
+            let i = index_of(p, button_id)?;
+            let obj = button_obj(&mut doc, i);
+            match size.as_deref() {
+                None | Some("large") => {
+                    obj.shift_remove("textSize");
+                }
+                Some(s) => put(obj, "textSize", json!(s), &["color", "icon", "group", "label"]),
             }
         }
         Op::SetGroup { button_id, group } => {
@@ -694,7 +731,7 @@ pub fn step_kind(op: &Op) -> StepKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profile::load_profile;
+    use crate::profile::{PageTarget, load_profile};
 
     const PAD: &str = r#"{
   "schema": 2,
@@ -1014,5 +1051,24 @@ mod tests {
         h.record(json!({"pad": "one"}), StepKind::Other, None, 0);
         h.clear(); // the app clears history whenever the active pad changes
         assert_eq!(h.undo(json!({"pad": "two"})), None);
+    }
+
+    #[test]
+    fn page_actions_and_text_size_edit() {
+        let l = pad();
+        let added = ok(&l, Op::Add { at: Some((3, 0)) });
+        let id = added.select.clone().unwrap();
+        let a = ok(&added.loaded, Op::SetAction { button_id: id.clone(), action: ActionSpec::Page { target: "fx.tsp.json".into(), name: None } });
+        assert_eq!(btn(&a, &id).action, Action::Page { target: PageTarget::File("fx.tsp.json".into()) });
+        assert_eq!(btn(&a, &id).label, "→ fx");
+        let named = ok(&a.loaded, Op::SetAction { button_id: id.clone(), action: ActionSpec::Page { target: "fx.tsp.json".into(), name: Some("FX sends".into()) } });
+        assert_eq!(btn(&named, &id).label, "→ FX sends");
+        let b = ok(&named.loaded, Op::SetAction { button_id: id.clone(), action: ActionSpec::Page { target: "back".into(), name: None } });
+        assert_eq!(btn(&b, &id).label, "→ Back", "label follows while it is a page label");
+        assert!(apply(&l, &Op::SetAction { button_id: "a".into(), action: ActionSpec::Page { target: "../x.tsp.json".into(), name: None } }, false).is_err());
+        let small = ok(&l, Op::SetTextSize { button_id: "a".into(), size: Some("small".into()) });
+        assert_eq!(small.loaded.doc["buttons"][0]["textSize"], "small");
+        let back = ok(&small.loaded, Op::SetTextSize { button_id: "a".into(), size: None });
+        assert!(back.loaded.doc["buttons"][0].get("textSize").is_none());
     }
 }

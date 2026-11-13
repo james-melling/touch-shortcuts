@@ -198,6 +198,15 @@
             "pattern": "^#[0-9a-fA-F]{6}$",
             "description": "Overrides the group colour."
           },
+          "textSize": {
+            "enum": [
+              "small",
+              "medium",
+              "large"
+            ],
+            "default": "large",
+            "description": "Label size; labels also shrink to fit the key."
+          },
           "action": {
             "type": "object",
             "required": [
@@ -207,9 +216,14 @@
               "type": {
                 "enum": [
                   "keys",
+                  "page",
                   "none"
                 ],
-                "description": "keys = send a key combo; none = not set yet."
+                "description": "keys = send a key combo; page = go to another pad; none = not set yet."
+              },
+              "target": {
+                "type": "string",
+                "description": "For page: \"back\" or a pad file in the same folder, e.g. \"fx.tsp.json\"."
               },
               "combo": {
                 "type": "string",

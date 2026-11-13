@@ -52,6 +52,8 @@ pub const CODES: &[&str] = &[
     "restore-failed",
     "editor-open-failed",
     "region-unavailable",
+    // Go-to-pad buttons
+    "pad-not-found",
 ];
 
 pub fn is_known(code: &str) -> bool {
