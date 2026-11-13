@@ -11,6 +11,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 type KeyView = {
   id: string; label: string; group: string; icon: string | null; color: string | null;
   repeat: number; disabled: string | null; combo: string | null; cell: [number, number, number, number];
+  page: string | null; textSize: string;
 };
 type PadView = {
   name: string; keys: KeyView[]; grid: { columns: number; rows: number };
@@ -61,6 +62,10 @@ let page = 0;
 let customRepeat = 5;
 let recording = 0; // timer id while Record is armed
 let activated = false;
+let actionMode: "keys" | "page" = "keys";
+let lastButtonForMode: string | null = null;
+type PadEntry = { index: number; name: string; file: string; current: boolean; error: string | null; sibling: boolean };
+let padEntries: PadEntry[] = [];
 let msgUntilOp = "";
 
 // ---------- helpers ----------
@@ -238,6 +243,11 @@ async function startRecording() {
 
 // ---------- Button tab ----------
 
+async function refreshPads() {
+  padEntries = await invoke<PadEntry[]>("pads_list");
+  renderButtonTab();
+}
+
 function setKeys(key: string, repeat?: number) {
   const k = selected();
   if (!k) return;
@@ -254,10 +264,10 @@ function setRepeat(n: number) {
   void apply({ kind: "setAction", buttonId: k.id, action: { type: "keys", combo: k.combo, repeat: n } });
 }
 
-function details(title: string, open: boolean, ...children: HTMLElement[]): HTMLDetailsElement {
-  const d = el("details", "ed-group");
-  d.open = open;
-  d.append(el("summary", "", title), ...children);
+/** A plain, always-open section (no collapsing when the selection changes). */
+function section(title: string, ...children: HTMLElement[]): HTMLElement {
+  const d = el("div", "ed-group");
+  d.append(el("div", "ed-group-title", title), ...children);
   return d;
 }
 
@@ -270,7 +280,22 @@ function renderButtonTab() {
   }
   const disabled = k.disabled && k.disabled !== NOT_SET ? k.disabled : null;
   const action = el("div", "ed-action");
-  action.append(el("div", "ed-caption", "Keys"));
+  const kindRow = el("div", "ed-mods");
+  kindRow.append(
+    button("Keys", () => { actionMode = "keys"; renderButtonTab(); }, `chip${actionMode === "keys" ? " on" : ""}`),
+    button("Go to pad", () => { actionMode = "page"; void refreshPads(); }, `chip${actionMode === "page" ? " on" : ""}`),
+  );
+  action.append(kindRow);
+  if (actionMode === "page") {
+    action.append(el("div", "ed-caption", "Go to"));
+    const list = el("div", "ed-padlist");
+    const goTo = (target: string, name: string | null) => void apply({ kind: "setAction", buttonId: k.id, action: { type: "page", target, name } });
+    list.append(button("← Back (previous pad)", () => goTo("back", null), `wide${k.page === "back" ? " on" : ""}`));
+    const siblings = padEntries.filter((p) => p.sibling && !p.current);
+    for (const p of siblings) list.append(button(`${p.name} · ${p.file}`, () => goTo(p.file, p.error ? null : p.name), `wide${k.page === p.file ? " on" : ""}${p.error ? " warn" : ""}`));
+    if (!siblings.length) list.append(el("p", "ed-hint", "No other pads in this folder yet: make one with Pad → New pad."));
+    action.append(list);
+  }
   if (disabled) {
     const r = el("div", "ed-disabled");
     r.append(el("p", "", disabled), button("Replace", () => { /* the picker below writes a fresh keys action */ msg("Pick keys below to replace it."); }));
@@ -302,7 +327,7 @@ function renderButtonTab() {
   );
   rep.append(custom);
   const clear = button("Clear keys", () => void apply({ kind: "setAction", buttonId: k.id, action: { type: "none" } }), "ed-link");
-  action.append(modRow, pages, grid, el("div", "ed-caption", "Repeat"), rep, clear);
+  if (actionMode === "keys") action.append(modRow, pages, grid, el("div", "ed-caption", "Repeat"), rep, clear);
 
   // Size & position
   const [cx, cy, cw, ch] = k.cell;
@@ -325,7 +350,7 @@ function renderButtonTab() {
     void apply({ kind: "move", buttonId: k.id, x, y });
   };
   dpad.append(el("span"), button("↑", mv(0, -1)), el("span"), button("←", mv(-1, 0)), el("span", "ed-pos", `${cx + 1},${cy + 1}`), button("→", mv(1, 0)), el("span"), button("↓", mv(0, 1)), el("span"));
-  const sizePos = details("Size & position", false, sizes, wh, dpad);
+  const sizePos = section("Size & position", sizes, wh, dpad);
 
   // Look
   const label = textField(k.label, 24, (t) => apply({ kind: "setLabel", buttonId: k.id, label: t }));
@@ -349,7 +374,11 @@ function renderButtonTab() {
     b.setAttribute("aria-label", name);
     icons.append(b);
   }
-  const look = details("Look", false, el("div", "ed-caption", "Label"), label, el("div", "ed-caption", "Colour"), swatches, el("div", "ed-caption", "Icon"), icons);
+  const textSizes = el("div", "ed-chips");
+  for (const [name, label] of [["small", "Small"], ["medium", "Medium"], ["large", "Large"]] as const) {
+    textSizes.append(button(label, () => void apply({ kind: "setTextSize", buttonId: k.id, size: name === "large" ? null : name }), `chip${k.textSize === name ? " on" : ""}`));
+  }
+  const look = section("Look", el("div", "ed-caption", "Label"), label, el("div", "ed-caption", "Text size"), textSizes, el("div", "ed-caption", "Colour"), swatches, el("div", "ed-caption", "Icon"), icons);
 
   root.replaceChildren(action, sizePos, look);
 }
@@ -469,6 +498,11 @@ function render(next: EditorView) {
   if (kindChanged) setTab(next.selection.kind === "button" ? "button" : "pad");
   const k = selected();
   if (k) lastButton = k.id;
+  if (k && k.id !== lastButtonForMode) {
+    lastButtonForMode = k.id;
+    actionMode = k.page ? "page" : "keys";
+    if (actionMode === "page") void refreshPads();
+  }
   if (k && kindChanged) {
     const c = parseCombo(k.combo);
     mods.clear();
@@ -479,7 +513,9 @@ function render(next: EditorView) {
   const order = readingOrder();
   const idx = k ? order.findIndex((o) => o.id === k.id) : -1;
   $("sel").textContent = k ? `${k.label} · ${idx + 1} of ${order.length}` : next.selection.kind === "cell" ? "Empty cell" : `${order.length} keys`;
-  $("combo").textContent = k ? (k.combo ? `${k.combo}${k.repeat > 1 ? ` ×${k.repeat}, every 25 ms` : ""}` : k.disabled ?? "") : "Tap a key to edit it, or an empty cell to add one";
+  $("combo").textContent = k
+    ? k.page ? `Goes to ${k.page === "back" ? "the previous pad" : k.page}` : k.combo ? `${k.combo}${k.repeat > 1 ? ` ×${k.repeat}, every 25 ms` : ""}` : k.disabled ?? ""
+    : "Tap a key to edit it, or an empty cell to add one";
   const same = next.sameCombo;
   $("same").hidden = same.length === 0;
   if (same.length) $("same").textContent = `Same keys as '${same[0][0]}' (row ${same[0][1]})${same.length > 1 ? ` (+${same.length - 1} more)` : ""}`;

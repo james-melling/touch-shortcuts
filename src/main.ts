@@ -7,7 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type KeyView = {
   id: string; label: string; group: string; icon: string | null; color: string | null;
-  repeat: number; disabled: string | null; combo: string | null;
+  repeat: number; disabled: string | null; combo: string | null; page: string | null; textSize: string;
   x: number; y: number; w: number; h: number; cell: [number, number, number, number];
 };
 type GridView = { columns: number; rows: number; left: number; top: number; cellWidth: number; rowHeight: number; gap: number };
@@ -52,11 +52,12 @@ let redUntilSuccess = false;
 function setStatus(text: string, tone: "" | "amber" | "red") {
   statusEl.textContent = text;
   statusEl.className = `row2 ${tone}`;
+  document.body.classList.toggle("alert", tone !== "" && text !== "");
 }
 
 function keyEl(k: KeyView): HTMLElement {
   const el = document.createElement("div");
-  el.className = `k ${k.group}${k.disabled ? " disabled" : ""}`;
+  el.className = `k ${k.group} ts-${k.textSize}${k.disabled ? " disabled" : ""}${k.page ? " page" : ""}`;
   el.dataset.id = k.id;
   Object.assign(el.style, { left: `${k.x}px`, top: `${k.y}px`, width: `${k.w}px`, height: `${k.h}px` });
   if (k.color) {
@@ -322,13 +323,17 @@ function applyOpacity(view: PadView) {
     pado = 1;
     bgo = 1;
   } else if (view.editing) {
-    pado = livePreview?.padOpacity ?? 1;
+    pado = livePreview?.padOpacity ?? pado;
     bgo = livePreview?.backgroundOpacity ?? Math.max(bgo, 0.6);
   } else if (regionFailed && bgo < 0.3) {
     bgo = 0.3;
   }
-  document.documentElement.style.setProperty("--pado", String(pado));
-  document.documentElement.style.setProperty("--bgo", String(bgo));
+  const root = document.documentElement.style;
+  root.setProperty("--pado", String(pado));
+  root.setProperty("--bgo", String(bgo));
+  // The header's backing follows the background, but never below 60% so its text stays readable.
+  root.setProperty("--head-a", String(Math.max(bgo, 0.6)));
+  root.setProperty("--scale", String(view.scale));
 }
 
 /** Floating mode (background 0, not editing): only keys, header and open menu take taps. */
@@ -352,10 +357,42 @@ async function updateRegion() {
   }
 }
 
+/** Labels that don't fit their key shrink on one line (to 10 px), then wrap
+ * to two lines at word breaks, and only then get an ellipsis. */
+function fitLabels() {
+  for (const el of keysEl.querySelectorAll<HTMLElement>(".k")) {
+    el.style.fontSize = "";
+    el.classList.remove("wrap");
+    const label = el.querySelector<HTMLElement>(".label");
+    if (!label) continue;
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    const over = () => label.scrollWidth > label.clientWidth || label.scrollHeight > label.clientHeight;
+    while (over() && size > 10) {
+      size -= 1;
+      el.style.fontSize = `${size}px`;
+    }
+    if (!over()) continue;
+    // Still too long on one line at 10 px: wrap to two lines at 12 px and shrink again.
+    el.classList.add("wrap");
+    size = Math.min(12, parseFloat(getComputedStyle(el).fontSize) + 2);
+    el.style.fontSize = `${size}px`;
+    while (over() && size > 10) {
+      size -= 1;
+      el.style.fontSize = `${size}px`;
+    }
+  }
+}
+
 function render(view: PadView) {
   pad = view;
   applyOpacity(view);
-  requestAnimationFrame(() => void updateRegion());
+  requestAnimationFrame(() => {
+    fitLabels();
+    void updateRegion();
+  });
+  // Fonts can finish loading after the first layout and widen labels: fit again.
+  void document.fonts.ready.then(() => fitLabels());
+  setTimeout(fitLabels, 150);
   const head = document.querySelector(".head") as HTMLElement;
   head.style.height = `${view.header}px`;
   document.body.classList.toggle("editing", view.editing);
@@ -458,12 +495,14 @@ let menuTimer = 0;
 
 function closeMenu() {
   menuEl.hidden = true;
+  document.body.classList.remove("menu-open");
   clearTimeout(menuTimer);
   void updateRegion();
 }
 
 /** Shows the menu only after the region includes it, so a tap on it never falls through. */
 async function showMenu() {
+  document.body.classList.add("menu-open");
   menuEl.style.visibility = "hidden";
   menuEl.hidden = false;
   await updateRegion();

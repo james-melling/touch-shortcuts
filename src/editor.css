@@ -47,8 +47,8 @@ body.ed { display: flex; flex-direction: column; height: 100%; font-size: 14px; 
 .ed-lab { min-width: 72px; color: var(--head-fg); font-size: 13px; }
 .ed-link { background: none !important; border: none !important; color: var(--ent-fg) !important; text-decoration: underline; padding: 0 !important; }
 .ed-disabled { border: 1px dashed var(--amber); border-radius: 8px; padding: 8px; display: flex; gap: 8px; align-items: center; color: var(--amber); font-size: 12px; }
-.ed-group { margin-top: 12px; border-top: 1px solid #2a2e33; }
-.ed-group summary { min-height: 44px; line-height: 44px; font-weight: 600; cursor: pointer; }
+.ed-group { margin-top: 14px; padding-top: 4px; border-top: 1px solid #2a2e33; }
+.ed-group-title { min-height: 36px; line-height: 36px; font-weight: 600; }
 .ed-dpad { display: grid; grid-template-columns: repeat(3, 56px); gap: 6px; justify-content: center; margin-top: 10px; }
 .ed-pos { text-align: center; line-height: 44px; color: var(--head-fg); font-size: 12px; }
 .ed-swatches, .ed-icons { display: flex; flex-wrap: wrap; gap: 6px; }

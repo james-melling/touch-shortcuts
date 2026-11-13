@@ -142,6 +142,18 @@ fn publish(app: &AppHandle, notice: Option<String>) -> EditorView {
     if let Some(panel) = app.get_webview_window(PANEL) {
         let wa_h = f64::from(work_area_logical(app).1);
         let _ = panel.set_size(LogicalSize::new(PANEL_WIDTH, f64::from(layout.height).min(wa_h - 24.0)));
+        // Re-place the panel only if the pad grew into it.
+        if let (Some(pad), Ok(s)) = (app.get_webview_window("main"), panel.scale_factor())
+            && let (Ok(pp), Ok(qp)) = (pad.outer_position(), panel.outer_position())
+        {
+            let (pp, qp) = (pp.to_logical::<f64>(s), qp.to_logical::<f64>(s));
+            let pad_w = f64::from(layout.width);
+            if qp.x < pp.x + pad_w && pp.x < qp.x + PANEL_WIDTH {
+                let left = pp.x - PANEL_WIDTH - 8.0;
+                let x = if left >= 0.0 { left } else { pp.x + pad_w + 8.0 };
+                let _ = panel.set_position(LogicalPosition::new(x, qp.y));
+            }
+        }
     }
     let v = view(app, notice);
     let _ = app.emit("editor-state", &v);
@@ -302,11 +314,8 @@ pub fn edit_apply(app: AppHandle, op: Op, base_rev: u64) -> Result<EditorView, E
     match result {
         Ok(r) => {
             let mut notice = r.notice;
-            // Slider-driven pad changes are saved by the panel's debounce (edit_flush).
-            if r.changed
-                && !matches!(op, Op::SetPad { .. })
-                && let Some(problem) = save_now(&app)
-            {
+            // Every change is saved straight away (sliders only apply on release).
+            if r.changed && let Some(problem) = save_now(&app) {
                 notice = Some(problem);
             }
             Ok(publish(&app, notice))

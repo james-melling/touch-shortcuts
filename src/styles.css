@@ -142,7 +142,26 @@ html, body {
   background: rgba(20, 22, 25, var(--bgo, 0.97)); opacity: var(--pado, 1);
 }
 #keys { opacity: var(--pado, 1); }
-/* The header and menu stay legible at every setting (backing >= 0.9, never faded). */
-.head { background: rgba(20, 22, 25, 0.92); border-radius: 8px; z-index: 1; }
+/* The header fades with the pad (backing follows the background, floor 60%),
+   and goes solid while it shows a warning or the menu is open. */
+.head {
+  background: rgba(20, 22, 25, var(--head-a, 0.92)); opacity: var(--pado, 1);
+  border-radius: 8px; z-index: 1; transition: opacity 120ms ease-out;
+}
+body.alert .head, body.menu-open .head, body.editing .head { opacity: 1; background: rgba(20, 22, 25, 0.92); }
 /* Keys keep their own backing so labels read over the app below. */
 .k { background-color: rgba(20, 22, 25, 0.92); background-image: linear-gradient(var(--bg), var(--bg)); }
+
+/* ---- label size: textSize × pad scale; fitLabels() shrinks what still doesn't fit ---- */
+.k { font-size: calc(var(--fs) * var(--scale, 1)); }
+.k.ts-large { --fs: 25px; }
+.k.ts-medium { --fs: 19px; }
+.k.ts-small { --fs: 15px; }
+.k small { font-size: 0.52em; }
+.k svg { width: 0.88em; height: 0.88em; }
+.k .badge { font-size: calc(11px * var(--scale, 1)); }
+.k .label { min-width: 0; }
+.k.wrap .label {
+  white-space: normal; line-height: 1.1; text-align: center; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}

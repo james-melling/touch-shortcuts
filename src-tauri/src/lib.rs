@@ -23,7 +23,7 @@ use tsp_core::executor::{self, Clock, Foreground, Outcome, Run, SideEffects, Tar
 #[cfg(not(any(windows, target_os = "macos")))]
 use tsp_core::{combo::KeyEvent, executor::{Elevation, KeySink}};
 use tsp_core::geometry::{self, Cells, Grid, MARGIN};
-use tsp_core::profile::{Action, Dock, Group, Loaded, load_profile};
+use tsp_core::profile::{Action, Dock, Group, Loaded, PageTarget, load_profile};
 use tsp_core::queue::{TapQueue, TapResult};
 
 const STARTER: &str = include_str!("../../profiles/r1-delay-gain.tsp.json");
@@ -115,6 +115,9 @@ struct KeyView {
     disabled: Option<String>,
     /// Canonical combo text for keys actions (the panel shows and edits it).
     combo: Option<String>,
+    /// Go-to-pad target ("back" or a pad file name).
+    page: Option<String>,
+    text_size: &'static str,
     x: u32,
     y: u32,
     w: u32,
@@ -197,12 +200,18 @@ fn pad_view_with(active: &Active, work_area: (u32, u32), edit: bool, opaque: boo
             group: group_name(&b.group),
             icon: b.icon.clone(),
             color: b.color.clone(),
-            repeat: match &b.action { Action::Keys { repeat, .. } => *repeat, Action::None | Action::Disabled { .. } => 1 },
+            repeat: match &b.action { Action::Keys { repeat, .. } => *repeat, _ => 1 },
             disabled: match &b.action {
                 Action::Disabled { code, reason } => Some(format!("{code}: {reason}")),
                 Action::None => Some(NOT_SET.to_string()),
-                Action::Keys { .. } => None,
+                Action::Keys { .. } | Action::Page { .. } => None,
             },
+            page: match &b.action {
+                Action::Page { target: PageTarget::Back } => Some("back".into()),
+                Action::Page { target: PageTarget::File(f) } => Some(f.clone()),
+                _ => None,
+            },
+            text_size: b.text_size.name(),
             combo: match &b.action { Action::Keys { combo, .. } => Some(tsp_core::combo::canonical_text(combo)), _ => None },
             x: r.x,
             y: r.y,
@@ -274,6 +283,8 @@ struct AppState {
     editor: Mutex<Option<tsp_core::session::Session>>,
     return_target: Mutex<editing::ReturnTarget>,
     pads: Mutex<pads::PadList>,
+    /// Pads to return to with a "Back" button (most recent last).
+    back: Mutex<Vec<PathBuf>>,
     log: applog::Log,
 }
 
@@ -466,7 +477,7 @@ fn get_pad(state: tauri::State<AppState>, app: AppHandle) -> PadView {
 }
 
 #[tauri::command]
-fn run_action(button_id: String, state: tauri::State<AppState>) -> Result<String, AppError> {
+fn run_action(button_id: String, state: tauri::State<AppState>, app: AppHandle) -> Result<String, AppError> {
     let job = {
         let active = state.active.lock().unwrap();
         let p = &active.loaded.profile;
@@ -474,6 +485,11 @@ fn run_action(button_id: String, state: tauri::State<AppState>) -> Result<String
         match &b.action {
             Action::Disabled { code, reason } => return Err(AppError { code: (*code).into(), message: format!("{code}: {reason}") }),
             Action::None => return Err(AppError { code: "action-unknown".into(), message: NOT_SET.into() }),
+            Action::Page { target } => {
+                let target = target.clone();
+                drop(active);
+                return go_to_pad(&app, &state, target);
+            }
             Action::Keys { combo, repeat, interval_ms } => Job {
                 button_id: b.id.clone(),
                 label: b.label.clone(),
@@ -501,6 +517,40 @@ fn run_action(button_id: String, state: tauri::State<AppState>) -> Result<String
         TapResult::CancelRunning => "cancelled",
     }
     .into())
+}
+
+/// A go-to-pad button: switch to a pad beside the current one (pushing the
+/// current pad on the Back stack), or go Back. Nothing is sent to the target app.
+fn go_to_pad(app: &AppHandle, state: &AppState, target: PageTarget) -> Result<String, AppError> {
+    if editing(state) {
+        return Err(AppError { code: "edit-active".into(), message: "edit-active: nothing sent. Tap Done to use the pad.".into() });
+    }
+    let current = state.active.lock().unwrap().path.clone();
+    let path = match &target {
+        PageTarget::Back => state.back.lock().unwrap().pop().ok_or_else(|| AppError {
+            code: "pad-not-found".into(),
+            message: "pad-not-found: there is no previous pad to go back to.".into(),
+        })?,
+        PageTarget::File(name) => current.with_file_name(name),
+    };
+    if !path.exists() {
+        return Err(AppError {
+            code: "pad-not-found".into(),
+            message: format!("pad-not-found: {} isn't next to this pad. Fix the button in ··· → Edit.", path.display()),
+        });
+    }
+    pads::switch_to(app, path).map_err(|m| AppError { code: m.split(' ').next().unwrap_or("profile-bound").to_string(), message: m })?;
+    if matches!(target, PageTarget::File(_)) {
+        let mut back = state.back.lock().unwrap();
+        back.push(current);
+        if back.len() > 20 {
+            back.remove(0);
+        }
+    }
+    let (view, layout) = pad_view(&state.active.lock().unwrap(), work_area_logical(app), false);
+    place_window(app, &layout);
+    let _ = app.emit("pad-reloaded", serde_json::json!({ "pad": view, "notice": "" }));
+    Ok("switched".into())
 }
 
 #[tauri::command]
@@ -725,6 +775,7 @@ pub fn run() {
                 editor: Mutex::new(None),
                 return_target: Mutex::new(editing::ReturnTarget::default()),
                 pads: Mutex::new(pads::PadList::default()),
+                back: Mutex::new(Vec::new()),
                 log: log.clone(),
             });
             spawn_worker(handle.clone(), shared, started, focus_mode, pad_elevated, log);

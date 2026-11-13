@@ -25,6 +25,8 @@ pub struct PadEntry {
     current: bool,
     /// Load error code when the file can't be opened.
     error: Option<String>,
+    /// In the same folder as the current pad (so a go-to-pad button can point at it).
+    sibling: bool,
 }
 
 #[derive(Default)]
@@ -63,6 +65,7 @@ pub fn pads_list(app: AppHandle) -> Vec<PadEntry> {
                 file: file_name(p),
                 current: *p == current,
                 error: loaded.err().map(str::to_string),
+                sibling: p.parent() == current.parent(),
             }
         })
         .collect();
@@ -89,7 +92,7 @@ fn remember(config_dir: &Path, path: &Path) {
 
 /// Makes `path` the active pad. In edit mode the current session is flushed
 /// first and a fresh session (with fresh undo) starts on the new pad.
-fn switch_to(app: &AppHandle, path: PathBuf) -> Result<(), String> {
+pub(crate) fn switch_to(app: &AppHandle, path: PathBuf) -> Result<(), String> {
     let state = app.state::<AppState>();
     let allow = state.settings.lock().unwrap().allow_system_keys;
     let bytes = std::fs::read(&path).map_err(|e| format!("profile-syntax {}: cannot read file: {e}. Fix the file, then pick it again in Pads.", path.display()))?;
